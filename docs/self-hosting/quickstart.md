@@ -5,10 +5,12 @@ description: Run your own Wicker Money instance with Docker, from pulling an ima
 
 # Quickstart
 
-Run your own Wicker Money instance with Docker. This assumes an existing
-PostgreSQL 16+ server — Wicker Money requires PostgreSQL specifically (not
-SQLite or MySQL) because tenant isolation between plugins is enforced with
-row-level security, roles and schemas that only PostgreSQL has.
+Run your own Wicker Money instance with Docker. The sample compose file below
+bundles PostgreSQL 16 for you — Wicker Money requires PostgreSQL specifically
+(not SQLite or MySQL) because tenant isolation between plugins is enforced
+with row-level security, roles and schemas that only PostgreSQL has. Already
+running your own PostgreSQL 16+ server? Skip ahead to
+[Using an existing PostgreSQL server](#using-an-existing-postgresql-server).
 
 ## 1. Get an image
 
@@ -27,24 +29,111 @@ running on your next pull, instead of only when you choose to upgrade. See
 version relate.
 :::
 
-## 2. Create the network and volume
+## 2. Create the network and volumes
 
-The sample compose file expects both to already exist, so a reverse proxy (or
-anything else) can share the same network without editing the compose file:
+The sample compose file expects these to already exist, so a reverse proxy
+(or anything else) can share the same network without editing the compose
+file, and so `docker compose down --volumes` can't take your data with it by
+accident:
 
 ```bash
 docker network create wickermoney_default
 docker volume create wickermoney_data
+docker volume create wickermoney_pg_data
 ```
+
+Skip `wickermoney_pg_data` if you're using an existing PostgreSQL server
+instead of the bundled one — see below.
 
 ## 3. Configure
 
 Copy [`docker/docker-compose.sample.yml`](https://github.com/wickermoney/wicker-money/blob/main/docker/docker-compose.sample.yml)
-to `docker-compose.yml` and create a `.env` next to it:
+to `docker-compose.yml`:
+
+```yaml title="docker-compose.yml"
+services:
+  # Remove this whole block if you're bringing your own PostgreSQL 16+ server
+  # (see "Using an existing PostgreSQL server" below), and point
+  # DATABASE_URL / DATABASE_OWNER_URL further down at it directly instead.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=wickermoney
+      - POSTGRES_USER=wickermoney
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    networks:
+      - wickermoney_default
+    volumes:
+      - wickermoney_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wickermoney -d wickermoney"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: creates/updates the schema, the wickermoney_app role, and every
+  # bundled plugin's role, then exits. This container showing Exited (0) in
+  # `docker compose ps` after `up` is expected — it isn't a long-running
+  # process, and it's safe to see it run again on every start.
+  migrate:
+    image: ghcr.io/wickermoney/wicker-money:latest
+    command: ["node", "dist/db/cli.js", "up"]
+    environment:
+      - DATABASE_OWNER_URL=postgresql://wickermoney:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/wickermoney
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required}
+    networks:
+      - wickermoney_default
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  wickermoney:
+    # Pin a released version (for example :0.1.0) instead of :latest for repeatable deploys.
+    image: ghcr.io/wickermoney/wicker-money:latest
+    ports:
+      - "${HOST_PORT:-8180}:8080"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - DATABASE_URL=postgresql://wickermoney_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}@postgres:5432/wickermoney
+      - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required}
+      - AUTH_ACCESS_TTL_SECONDS=${AUTH_ACCESS_TTL_SECONDS:-900}
+      - AUTH_REFRESH_TTL_SECONDS=${AUTH_REFRESH_TTL_SECONDS:-2592000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    networks:
+      - wickermoney_default
+    volumes:
+      - wickermoney_data:/app/data
+    depends_on:
+      # Bundled Postgres only -- remove just this "postgres:" key (keep
+      # "migrate:" below) if you delete the postgres: service above.
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+networks:
+  wickermoney_default:
+    external: true
+    name: wickermoney_default
+
+volumes:
+  wickermoney_data:
+    external: true
+    name: wickermoney_data
+  wickermoney_pg_data:
+    external: true
+    name: wickermoney_pg_data
+```
+
+and create a `.env` next to it:
 
 ```bash title=".env"
-DATABASE_URL=postgresql://wickermoney_app:CHANGE_ME@your-postgres-host:5432/wickermoney
-DATABASE_OWNER_URL=postgresql://wickermoney:CHANGE_ME@your-postgres-host:5432/wickermoney
+POSTGRES_PASSWORD=CHANGE_ME
 APP_DB_PASSWORD=CHANGE_ME
 AUTH_SECRET=
 ```
@@ -54,30 +143,28 @@ Generate `AUTH_SECRET` with `openssl rand -base64 48`. It signs access tokens
 row-level security policy checks — treat it like a database credential, not a
 cosmetic setting.
 
-`DATABASE_URL` and `DATABASE_OWNER_URL` point at the **same** database as two
-different roles, deliberately. The app connects as `wickermoney_app` — a
-non-superuser, non-owner role — because a superuser bypasses row-level
-security unconditionally, which would make every isolation policy decorative.
-Migrations need the owner role's privileges (creating schemas, policies,
-`SECURITY DEFINER` functions), which the app role deliberately doesn't have.
+`POSTGRES_PASSWORD` and `APP_DB_PASSWORD` are two different roles on the
+*same* database, deliberately. The `migrate` service connects as the
+database owner (`wickermoney`, authenticated with `POSTGRES_PASSWORD`)
+because creating schemas, policies and `SECURITY DEFINER` functions needs
+privileges a superuser bypass makes possible — and the `wickermoney` app
+service connects as `wickermoney_app` (authenticated with `APP_DB_PASSWORD`)
+for exactly the opposite reason: a superuser bypasses row-level security
+unconditionally, so if the long-running API had owner privileges, every
+isolation policy would be decorative.
 
-See [Using an existing PostgreSQL server](#using-an-existing-postgresql-server)
-below if you don't have a database yet.
-
-## 4. Run migrations
-
-The image doesn't migrate on start — on purpose, since that would mean the
-running API needs owner credentials, which it deliberately doesn't have:
-
-```bash
-docker run --rm --env-file .env wickermoney node dist/db/cli.js up
-```
-
-## 5. Start it
+## 4. Start it
 
 ```bash
 docker compose up -d
 ```
+
+This brings the stack up in order: PostgreSQL starts and reports healthy,
+then `migrate` applies schema migrations, creates the `wickermoney_app` role,
+and provisions every bundled plugin's role, then exits — only once that
+succeeds does the `wickermoney` app container start. If `migrate` fails, the
+app container never starts rather than booting against a half-migrated
+database.
 
 By default the app listens on `http://localhost:8180` (override with
 `HOST_PORT`). If you're putting a reverse proxy in front, set `TRUST_PROXY=true`
@@ -86,6 +173,30 @@ per-address auth rate limits apply to everyone behind it collectively instead
 of individually.
 
 ## Using an existing PostgreSQL server
+
+Prefer to point at a PostgreSQL 16+ server you already run? Delete the
+`postgres` service block from `docker-compose.yml` entirely (and skip
+creating the `wickermoney_pg_data` volume above), then set `DATABASE_OWNER_URL`
+and `DATABASE_URL` directly on the `migrate` and `wickermoney` services
+instead of the computed `postgresql://...@postgres:5432/...` values — Compose
+has no service named `postgres` left to build that connection string from
+once the block is gone:
+
+```bash title=".env"
+DATABASE_URL=postgresql://wickermoney_app:CHANGE_ME@your-postgres-host:5432/wickermoney
+DATABASE_OWNER_URL=postgresql://wickermoney:CHANGE_ME@your-postgres-host:5432/wickermoney
+APP_DB_PASSWORD=CHANGE_ME
+AUTH_SECRET=
+```
+
+Deleting the `postgres` service block also leaves two dangling
+`depends_on: postgres` entries behind — one on `migrate`, one on
+`wickermoney` — and Compose refuses to start with *"service ... depends on
+undefined service postgres"* until both are removed. `migrate` ends up with
+no `depends_on` at all (there's no local container left to wait on);
+`wickermoney` keeps its `depends_on: migrate: condition:
+service_completed_successfully` entry, just without the `postgres` one
+alongside it.
 
 Wicker Money expects a database named `wickermoney`, created and owned by a
 role with `CREATEROLE` (migrations create the `wickermoney_app` role):
