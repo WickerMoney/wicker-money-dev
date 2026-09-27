@@ -1,0 +1,102 @@
+/**
+ * Wicker Money design tokens, ported from packages/ui-kit/src/tokens.css
+ * (Part A of documents/brand/brand-guide.md — the *shipped* tokens, not the
+ * proposed-but-undecided Indigo/Zinc palette in Part B). Infima is Docusaurus's
+ * CSS framework; each --wm-* custom property is kept alongside the --ifm-*
+ * variable it feeds, so this file stays a mapping, not a fork of the palette.
+ *
+ * Font: the app currently ships no explicit font-family (system-ui stack).
+ * Part B of the brand guide proposes Inter, but flags itself as "not
+ * confirmed" — so this file matches what's actually shipped today rather
+ * than the proposal. Revisit both together if/when that gets decided.
+ */
+
+:root {
+  /* Wicker Money tokens (light) */
+  --wm-bg: #f7f8fa;
+  --wm-surface: #ffffff;
+  --wm-surface-alt: #f1f3f6;
+  --wm-border: #dfe3e9;
+  --wm-text: #16191d;
+  --wm-text-muted: #5b6472;
+  --wm-accent: #2f6feb;
+  --wm-positive: #1a7f52;
+  --wm-negative: #c0392b;
+  --wm-warning: #b7791f;
+  --wm-radius: 10px;
+  --wm-radius-sm: 6px;
+  --wm-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --wm-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* Infima mapping (light) */
+  --ifm-color-primary: var(--wm-accent);
+  --ifm-color-primary-dark: #165be1;
+  --ifm-color-primary-darker: #134fc5;
+  --ifm-color-primary-darkest: #1042a4;
+  --ifm-color-primary-light: #5086ee;
+  --ifm-color-primary-lighter: #6b99f1;
+  --ifm-color-primary-lightest: #8caff4;
+
+  --ifm-color-success: var(--wm-positive);
+  --ifm-color-danger: var(--wm-negative);
+  --ifm-color-warning: var(--wm-warning);
+
+  --ifm-background-color: var(--wm-bg);
+  --ifm-background-surface-color: var(--wm-surface);
+  --ifm-font-color-base: var(--wm-text);
+  --ifm-heading-color: var(--wm-text);
+
+  --ifm-font-family-base: var(--wm-font);
+  --ifm-font-family-monospace: var(--wm-mono);
+  --ifm-code-font-size: 90%;
+
+  --ifm-global-radius: var(--wm-radius-sm);
+  --ifm-navbar-background-color: var(--wm-surface);
+  --ifm-footer-background-color: #16191d;
+  --docusaurus-highlighted-code-line-bg: rgba(47, 111, 235, 0.1);
+}
+
+/* Docusaurus toggles data-theme="dark" on <html>; the app's own switcher
+   uses the same attribute name (see AppShell.tsx / tokens.css), which is a
+   deliberate point of consistency between the two, even though the storage
+   key and scope (site-wide localStorage here, wickermoney.theme there) differ. */
+[data-theme='dark'] {
+  /* Wicker Money tokens (dark) */
+  --wm-bg: #0f1216;
+  --wm-surface: #171b21;
+  --wm-surface-alt: #1e232b;
+  --wm-border: #2b323c;
+  --wm-text: #e8eaed;
+  --wm-text-muted: #9aa4b2;
+  --wm-accent: #5b8def;
+  --wm-positive: #3fbf87;
+  --wm-negative: #e5736a;
+  --wm-warning: #e0a84a;
+
+  /* Infima mapping (dark) */
+  --ifm-color-primary: var(--wm-accent);
+  --ifm-color-primary-dark: #3a76ec;
+  --ifm-color-primary-darker: #1f63e9;
+  --ifm-color-primary-darkest: #1454d0;
+  --ifm-color-primary-light: #7ca4f2;
+  --ifm-color-primary-lighter: #97b7f5;
+  --ifm-color-primary-lightest: #b8cef8;
+
+  --ifm-color-success: var(--wm-positive);
+  --ifm-color-danger: var(--wm-negative);
+  --ifm-color-warning: var(--wm-warning);
+
+  --ifm-background-color: var(--wm-bg);
+  --ifm-background-surface-color: var(--wm-surface);
+  --ifm-font-color-base: var(--wm-text);
+  --ifm-heading-color: var(--wm-text);
+  --ifm-navbar-background-color: var(--wm-surface);
+  --ifm-footer-background-color: #0b0d10;
+  --docusaurus-highlighted-code-line-bg: rgba(91, 141, 239, 0.15);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-weight: 600;
+}
