@@ -10,7 +10,7 @@ Wicker Money is a self-hostable personal finance app, built as a thin core
 plus installable plugins.
 
 The core owns identity, money movement and the app shell. Everything that
-*interprets* money — budgets, forecasting, net worth, FIRE planning,
+*interprets* money — budgets, forecasting, FIRE planning,
 importers — is a plugin built against `@wickermoney/plugin-sdk`. A fresh
 install is useful on its own; bundled plugins ship enabled but hold no
 privileges a third-party plugin couldn't also request.
