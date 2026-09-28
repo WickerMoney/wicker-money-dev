@@ -22,9 +22,9 @@ const FeatureList: FeatureItem[] = [
     title: 'A thin core, and plugins for the rest',
     description: (
       <>
-        Core owns identity, money movement and the app shell. Budgets,
-        forecasting, net worth and importers are plugins built against a
-        published SDK — install what you need.
+        Core owns identity, money movement and the app shell. Budgets and
+        importers are plugins built against a published SDK today, with
+        forecasting coming in 0.2.0 — install what you need.
       </>
     ),
   },
