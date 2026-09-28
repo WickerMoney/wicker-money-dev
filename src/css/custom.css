@@ -1,15 +1,19 @@
 /**
  * Wicker Money design tokens, ported from packages/ui-kit/src/tokens.css
- * (Part A of documents/brand/brand-guide.md). The accent is the brand green
- * derived from the logo files, decided in the brand guide's colour section —
- * it replaced both the old shipped blue and Part B's Indigo/Zinc proposal. Infima is Docusaurus's
- * CSS framework; each --wm-* custom property is kept alongside the --ifm-*
- * variable it feeds, so this file stays a mapping, not a fork of the palette.
+ * (Part A of documents/brand/brand-guide.md). Every --wm-* value here must
+ * match tokens.css exactly — colours, font stacks, radius, gaps, shadow — so
+ * the docs site reads as the same brand as the app even though it doesn't
+ * import the ui-kit package. The chart tokens (--wm-chart-*) are left out
+ * until this site draws a chart. The accent is the brand green derived from
+ * the logo files, decided in the brand guide's colour section.
  *
- * Font: the app currently ships no explicit font-family (system-ui stack).
- * Part B of the brand guide proposes Inter, but flags itself as "not
- * confirmed" — so this file matches what's actually shipped today rather
- * than the proposal. Revisit both together if/when that gets decided.
+ * Infima is Docusaurus's CSS framework; each --wm-* custom property is kept
+ * alongside the --ifm-* variable it feeds, so this file stays a mapping, not
+ * a fork of the palette.
+ *
+ * Font: the app ships the system-ui stack (--wm-font). Part B of the brand
+ * guide proposes Inter but flags itself as "not confirmed", so this file
+ * matches what's shipped. Revisit both together if/when that gets decided.
  */
 
 :root {
@@ -27,8 +31,11 @@
   --wm-warning: #b7791f;
   --wm-radius: 10px;
   --wm-radius-sm: 6px;
-  --wm-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --wm-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --wm-gap: 16px;
+  --wm-gap-sm: 8px;
+  --wm-shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 4%);
+  --wm-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --wm-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   /* Infima mapping (light) */
   --ifm-color-primary: var(--wm-accent);
@@ -54,7 +61,7 @@
 
   --ifm-global-radius: var(--wm-radius-sm);
   --ifm-navbar-background-color: var(--wm-surface);
-  --ifm-footer-background-color: #16191d;
+  --ifm-footer-background-color: var(--wm-bg);
   --docusaurus-highlighted-code-line-bg: rgba(46, 80, 13, 0.1);
 }
 
@@ -75,6 +82,7 @@
   --wm-positive: #29a987;
   --wm-negative: #e5736a;
   --wm-warning: #e0a84a;
+  --wm-shadow: 0 1px 2px rgb(0 0 0 / 40%);
 
   /* Infima mapping (dark) */
   --ifm-color-primary: var(--wm-accent);
@@ -94,7 +102,7 @@
   --ifm-font-color-base: var(--wm-text);
   --ifm-heading-color: var(--wm-text);
   --ifm-navbar-background-color: var(--wm-surface);
-  --ifm-footer-background-color: #0b0d10;
+  --ifm-footer-background-color: var(--wm-bg);
   --docusaurus-highlighted-code-line-bg: rgba(169, 209, 115, 0.15);
 }
 
@@ -116,4 +124,10 @@
 .hero--primary .button--outline:not(:hover) {
   color: var(--wm-accent-text);
   border-color: var(--wm-accent-text);
+}
+
+/* Footer matches the marketing site's: the page background with a hairline
+   rule above it, rather than Infima's dark footer block. */
+.footer {
+  border-top: 1px solid var(--wm-border);
 }
