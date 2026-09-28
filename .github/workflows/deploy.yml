@@ -6,20 +6,26 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
+# Read-only by default; only the deploy job (which never runs on a PR) gets
+# the Pages write / OIDC permissions it needs.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# One run per ref; a newer push to the same PR cancels the superseded run.
+# Pushes to main are never cancelled mid-run. The actual Pages deploy has its
+# own `pages` group (on the deploy job) so a PR run can never contend with it.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    name: Build
+    # Required status check for branch protection (scripts/branch-protection.sh).
+    # Renaming this breaks the protection rule until the script is updated.
+    name: Lint, typecheck, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,15 +42,30 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      # Pages packaging is only needed when the deploy job will run.
+      - if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: build
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    # Never on pull_request. Push to main deploys; a manual workflow_dispatch
+    # deploys only when dispatched from main.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
