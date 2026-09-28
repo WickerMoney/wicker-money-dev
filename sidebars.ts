@@ -2,7 +2,7 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs'
 
 // Generated from docs/ folder structure + each _category_.json's `position`.
 // Three sections today (self-hosting, contributing, api) match the shape of
-// the old Fioneer docs-platform ADR's three audiences. If per-plugin
+// the original (pre-rename) docs-platform ADR's three audiences. If per-plugin
 // versioned docs get built later (the reason Docusaurus was chosen over
 // VitePress), that likely becomes an *additional* docs plugin instance
 // (a second `@docusaurus/plugin-content-docs` with its own id/sidebar/path,
