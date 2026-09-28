@@ -1,7 +1,8 @@
 /**
  * Wicker Money design tokens, ported from packages/ui-kit/src/tokens.css
- * (Part A of documents/brand/brand-guide.md — the *shipped* tokens, not the
- * proposed-but-undecided Indigo/Zinc palette in Part B). Infima is Docusaurus's
+ * (Part A of documents/brand/brand-guide.md). The accent is the brand green
+ * derived from the logo files, decided in the brand guide's colour section —
+ * it replaced both the old shipped blue and Part B's Indigo/Zinc proposal. Infima is Docusaurus's
  * CSS framework; each --wm-* custom property is kept alongside the --ifm-*
  * variable it feeds, so this file stays a mapping, not a fork of the palette.
  *
@@ -19,8 +20,9 @@
   --wm-border: #dfe3e9;
   --wm-text: #16191d;
   --wm-text-muted: #5b6472;
-  --wm-accent: #2f6feb;
-  --wm-positive: #1a7f52;
+  --wm-accent: #2e500d;
+  --wm-accent-text: #ffffff;
+  --wm-positive: #0c7e65;
   --wm-negative: #c0392b;
   --wm-warning: #b7791f;
   --wm-radius: 10px;
@@ -30,12 +32,12 @@
 
   /* Infima mapping (light) */
   --ifm-color-primary: var(--wm-accent);
-  --ifm-color-primary-dark: #165be1;
-  --ifm-color-primary-darker: #134fc5;
-  --ifm-color-primary-darkest: #1042a4;
-  --ifm-color-primary-light: #5086ee;
-  --ifm-color-primary-lighter: #6b99f1;
-  --ifm-color-primary-lightest: #8caff4;
+  --ifm-color-primary-dark: #29480c;
+  --ifm-color-primary-darker: #27440b;
+  --ifm-color-primary-darkest: #203809;
+  --ifm-color-primary-light: #33580e;
+  --ifm-color-primary-lighter: #355c0f;
+  --ifm-color-primary-lightest: #3c6811;
 
   --ifm-color-success: var(--wm-positive);
   --ifm-color-danger: var(--wm-negative);
@@ -53,7 +55,7 @@
   --ifm-global-radius: var(--wm-radius-sm);
   --ifm-navbar-background-color: var(--wm-surface);
   --ifm-footer-background-color: #16191d;
-  --docusaurus-highlighted-code-line-bg: rgba(47, 111, 235, 0.1);
+  --docusaurus-highlighted-code-line-bg: rgba(46, 80, 13, 0.1);
 }
 
 /* Docusaurus toggles data-theme="dark" on <html>; the app's own switcher
@@ -68,19 +70,20 @@
   --wm-border: #2b323c;
   --wm-text: #e8eaed;
   --wm-text-muted: #9aa4b2;
-  --wm-accent: #5b8def;
-  --wm-positive: #3fbf87;
+  --wm-accent: #a9d173;
+  --wm-accent-text: #0c301c;
+  --wm-positive: #29a987;
   --wm-negative: #e5736a;
   --wm-warning: #e0a84a;
 
   /* Infima mapping (dark) */
   --ifm-color-primary: var(--wm-accent);
-  --ifm-color-primary-dark: #3a76ec;
-  --ifm-color-primary-darker: #1f63e9;
-  --ifm-color-primary-darkest: #1454d0;
-  --ifm-color-primary-light: #7ca4f2;
-  --ifm-color-primary-lighter: #97b7f5;
-  --ifm-color-primary-lightest: #b8cef8;
+  --ifm-color-primary-dark: #9ac95b;
+  --ifm-color-primary-darker: #93c54e;
+  --ifm-color-primary-darkest: #7aab38;
+  --ifm-color-primary-light: #b8d98b;
+  --ifm-color-primary-lighter: #bfdd98;
+  --ifm-color-primary-lightest: #d6e9bc;
 
   --ifm-color-success: var(--wm-positive);
   --ifm-color-danger: var(--wm-negative);
@@ -92,11 +95,25 @@
   --ifm-heading-color: var(--wm-text);
   --ifm-navbar-background-color: var(--wm-surface);
   --ifm-footer-background-color: #0b0d10;
-  --docusaurus-highlighted-code-line-bg: rgba(91, 141, 239, 0.15);
+  --docusaurus-highlighted-code-line-bg: rgba(169, 209, 115, 0.15);
 }
 
 .markdown h1,
 .markdown h2,
 .markdown h3 {
   font-weight: 600;
+}
+
+/* The homepage hero is filled with the accent, so its text follows
+   --wm-accent-text (white on the deep light-mode green, the logo's dark ink
+   on the light dark-mode green) rather than the page heading colour set
+   above, which would put dark-on-dark / light-on-light. The outline button
+   inherits Infima's grey-900 text otherwise, so it follows the same token. */
+.hero--primary {
+  --ifm-hero-text-color: var(--wm-accent-text);
+  --ifm-heading-color: var(--wm-accent-text);
+}
+.hero--primary .button--outline:not(:hover) {
+  color: var(--wm-accent-text);
+  border-color: var(--wm-accent-text);
 }
