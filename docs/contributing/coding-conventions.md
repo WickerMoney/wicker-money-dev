@@ -51,6 +51,18 @@ Two rules exist specifically to keep the layering in
   `*.integration.test.ts`, run against a real PostgreSQL with row-level
   security actually enabled. Anything touching tenant isolation belongs here,
   not behind a mock — a mock can't catch a policy that's missing or wrong.
+- **Faking the clock**: call `vi.useFakeTimers({ toFake: ['Date'], now })`
+  *before* registering users or issuing tokens, not after. A token issued
+  against the real clock and checked against a faked one can look expired.
+  Six integration tests failed with `401` from the 1st to the 14th of every
+  month for exactly this reason until 0.2.1. Restore the clock with
+  `vi.useRealTimers()` in `afterEach`.
+- **Dates in tests**: date logic that depends on "today" takes it as an
+  argument (as `horizonEnd(today, horizon)` and the
+  `@wickermoney/plugin-sdk/recurrence` functions do) rather than reading
+  `new Date()` deep inside. The service resolves the user's today once and
+  passes it down, so the pure functions can be tested on any day, including
+  month ends and February 29.
 
 ## Commits
 
