@@ -1,0 +1,13 @@
+# Normalize text files to LF in the repo and on checkout, so a Windows
+# checkout without core.autocrlf does not show every file as modified.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary

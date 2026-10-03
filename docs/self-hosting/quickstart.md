@@ -21,7 +21,7 @@ docker pull ghcr.io/wickermoney/wicker-money:latest
 :::tip[Pin a version once plugins are in the picture]
 `:latest` is fine for a quick look. For anything you'll actually keep
 running, pin a specific tag instead — for example
-`ghcr.io/wickermoney/wicker-money:0.1.0` — and bump it deliberately. Bundled
+`ghcr.io/wickermoney/wicker-money:0.2.1` — and bump it deliberately. Bundled
 plugins ship inside the same image, so an unpinned `:latest` can silently
 change which plugin versions (and which `SDK_MAJOR_VERSION` they expect) you're
 running on your next pull, instead of only when you choose to upgrade. See
@@ -48,13 +48,18 @@ instead of the bundled one — see below.
 ## 3. Configure
 
 Copy [`docker/docker-compose.sample.yml`](https://github.com/wickermoney/wicker-money/blob/main/docker/docker-compose.sample.yml)
-to `docker-compose.yml`:
+to `docker-compose.yml`. It's reproduced here as it is in the repository:
 
 ```yaml title="docker-compose.yml"
 services:
   # Remove this whole block if you're bringing your own PostgreSQL 16+ server
-  # (see "Using an existing PostgreSQL server" below), and point
-  # DATABASE_URL / DATABASE_OWNER_URL further down at it directly instead.
+  # (see "Using an existing PostgreSQL server" in the self-hosting docs), and
+  # point DATABASE_URL / DATABASE_OWNER_URL below at it directly instead.
+  # Customizing anything else about that server -- role names especially --
+  # review .env.example top to bottom first: it documents every variable this
+  # image reads, including ones (APP_DB_ROLE) that must be set identically on
+  # both `migrate` and `wickermoney` below, or the two disagree at runtime on
+  # what a plugin's own database role is called.
   postgres:
     image: postgres:16-alpine
     environment:
@@ -75,17 +80,29 @@ services:
   # One-shot: creates/updates the schema, the wickermoney_app role, and every
   # bundled plugin's role, then exits. This container showing Exited (0) in
   # `docker compose ps` after `up` is expected — it isn't a long-running
-  # process, and it's safe to see it run again on every start.
+  # process, and it is safe to re-run on every start.
   migrate:
     image: ghcr.io/wickermoney/wicker-money:latest
     command: ["node", "dist/db/cli.js", "up"]
     environment:
+      # loadConfig() requires DATABASE_URL at every entry point, cli.ts
+      # included, even though migrations connect with DATABASE_OWNER_URL only
+      # -- this value is never actually used, just required to be present.
+      #
+      # These three assume the bundled wickermoney_app/wickermoney role names
+      # from the postgres: service above. Using different role names (bring-
+      # your-own Postgres)? Add APP_DB_ROLE here too, set to the exact same
+      # value as in `wickermoney:` below -- see .env.example for what it does.
+      - DATABASE_URL=postgresql://wickermoney_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}@postgres:5432/wickermoney
       - DATABASE_OWNER_URL=postgresql://wickermoney:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/wickermoney
       - APP_DB_PASSWORD=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
       - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required}
     networks:
       - wickermoney_default
     depends_on:
+      # Bundled Postgres only. Deleting the postgres: service above? Delete
+      # this whole depends_on block too -- Compose refuses to start if
+      # anything still depends on a service that no longer exists.
       postgres:
         condition: service_healthy
     restart: "no"
@@ -98,6 +115,8 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      # Same role-name caveat as `migrate:` above: if you added APP_DB_ROLE
+      # there, add it here too with the identical value.
       - DATABASE_URL=postgresql://wickermoney_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}@postgres:5432/wickermoney
       - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required}
       - AUTH_ACCESS_TTL_SECONDS=${AUTH_ACCESS_TTL_SECONDS:-900}
@@ -117,6 +136,8 @@ services:
     restart: unless-stopped
 
 networks:
+  # Shared external network (reverse proxy etc.). Create it once:
+  #   docker network create wickermoney_default
   wickermoney_default:
     external: true
     name: wickermoney_default
@@ -124,9 +145,13 @@ networks:
 volumes:
   wickermoney_data:
     external: true
+    # Create it once: docker volume create wickermoney_data
     name: wickermoney_data
   wickermoney_pg_data:
     external: true
+    # Create it once: docker volume create wickermoney_pg_data
+    # External (like wickermoney_data above) so `docker compose down --volumes`
+    # can't take your actual financial data with it by accident.
     name: wickermoney_pg_data
 ```
 
@@ -167,10 +192,22 @@ app container never starts rather than booting against a half-migrated
 database.
 
 By default the app listens on `http://localhost:8180` (override with
-`HOST_PORT`). If you're putting a reverse proxy in front, set `TRUST_PROXY=true`
-— without it, every request appears to come from the proxy's address, and the
+`HOST_PORT`). If you're putting a reverse proxy in front, add
+`- TRUST_PROXY=true` to the `wickermoney` service's `environment:` list.
+Without it, every request appears to come from the proxy's address, and the
 per-address auth rate limits apply to everyone behind it collectively instead
 of individually.
+
+## 5. First login
+
+Open the app and register. Your account takes your browser's time zone, which
+decides when "today" turns over for recurring items, "Until payday" and the
+forecast. Check it under **Settings → Time zone** if the browser's zone isn't
+the one you live in. Once the accounts you need exist, close registration: add
+`- REGISTRATION_ENABLED=false` to the `wickermoney` service's `environment:`
+list and run `docker compose up -d` again. The compose file passes only the
+variables it lists, so putting it in `.env` alone does nothing (see the
+[Configuration reference](./configuration#auth)).
 
 ## Using an existing PostgreSQL server
 

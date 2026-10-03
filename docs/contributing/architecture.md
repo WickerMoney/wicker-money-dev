@@ -76,6 +76,38 @@ privileges after `RESET ROLE` — that's why the current model only installs
 *trusted* plugins; genuine third-party plugin isolation needs connection-level
 isolation that doesn't exist yet.
 
+## Interpreting money is a plugin's job
+
+The line between core and plugin is about what the code *does*, not how big or
+central it is. Core stores and moves money: accounts, transactions, transfers,
+and since 0.2.0 recurring items, which are the user's own statement of what
+they expect to happen. Anything that turns that data into an opinion is a
+plugin. The "Until payday" widget (`plugins/upcoming`) and the Forecast page
+(`plugins/forecast`) are both bundled plugins for this reason, even though they
+ship enabled and read core data. Each holds only read grants on
+`recurring_items` and `accounts`, the same as a third-party plugin would have
+to request.
+
+The projection itself is computed by core and served from
+`/api/v1/core/recurring-items/upcoming` and `/forecast`, because "today", the
+starting balance and the buffer are core facts. The plugins only present it.
+
+## "Today" comes from the server
+
+Every date-dependent answer (a recurring item's next due date, the Until
+payday window, the first forecast day) is computed on the server against the
+user's **today**: their calendar day in `core.users.timezone`. That value is
+returned in the response. Clients and plugins render the server's `today` and
+never derive it from the browser clock, so two widgets on one dashboard can't
+disagree about the date. Calendar dates travel as `YYYY-MM-DD` strings and are
+built in local time when displayed (`ctx.formatDate`); parsing one as midnight
+UTC shows it a day early anywhere west of UTC, which was a real bug fixed in
+0.2.0.
+
+The zone is an IANA name, stored canonically. Fixed offsets are refused: they
+have no daylight saving time, and PostgreSQL reads their sign the opposite way
+to ISO 8601.
+
 ## One image, one process
 
 The API serves the built web app and the plugin remotes itself
@@ -103,7 +135,11 @@ A plugin that imports AGPL-covered code, or is a derivative of a bundled
 plugin, stays AGPL-3.0-only. This is why the plugin contract (what lives in
 `plugin-sdk` versus what stays app-internal) is treated as a licensing
 decision, not just an API design one — anything a plugin needs has to be
-promotable into the SDK, never the other way around.
+promotable into the SDK, never the other way around. The recurrence maths is
+an example: occurrence dates, month-end clamping, `nextPayday`,
+`monthlyEquivalent` and daily balances with a per-day low live in
+`@wickermoney/plugin-sdk/recurrence` (Apache-2.0, dependency-free), so the
+server, the bundled plugins and any third-party plugin use the same rules.
 
 Contributions follow inbound-equals-outbound: a change to `plugin-sdk` or
 `ui-kit` is Apache-2.0, a change to the app or a bundled plugin is
