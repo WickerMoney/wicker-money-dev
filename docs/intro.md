@@ -27,6 +27,8 @@ for what's shipped versus planned.
 
 - **[Self-hosting](/docs/self-hosting/quickstart)** — run your own instance
   with Docker.
+- **[Features](/docs/features/recurring-items)** — recurring items, the
+  "Until payday" widget, the balance forecast, and your time zone.
 - **[Contributing](/docs/contributing/dev-environment)** — set up a dev
   environment and understand how the codebase is laid out.
 - **[API reference](/docs/api/overview)** — endpoint reference (in progress).
