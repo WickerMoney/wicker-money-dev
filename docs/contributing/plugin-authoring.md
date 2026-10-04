@@ -1,0 +1,126 @@
+---
+sidebar_position: 5
+description: Rules for plugin code that the manifest schema doesn't tell you, money arithmetic with the SDK, what happens when a plugin is turned off, and showing form errors.
+---
+
+# Writing a plugin
+
+A plugin is a Module Federation remote plus a manifest, built against
+`@wickermoney/plugin-sdk` and `@wickermoney/ui-kit` (both Apache-2.0). The
+build setup, and the rules that fail at runtime rather than at build time (the
+remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
+paths are relative to the API root), are in the app README's
+[Writing a plugin](https://github.com/wickermoney/wicker-money#writing-a-plugin)
+section. This page covers what changed for plugin code in 0.3.0 and 0.4.0.
+
+## Money: `@wickermoney/plugin-sdk/money`
+
+Money is `numeric(19,4)` in the database and a decimal string in TypeScript,
+never a `number`. Since 0.3.0 the SDK has one module for exact arithmetic on
+those strings, at `@wickermoney/plugin-sdk/money` (also exported from the
+package root). Use it instead of keeping your own helpers. The bundled
+budgets, insights and spending-trends plugins and the recurrence module all
+do.
+
+```ts
+import { addMoney, compareMoney, equalMoney, sumMoney } from '@wickermoney/plugin-sdk/money'
+
+sumMoney(['0.1', '0.2'])              // '0.3000', not 0.30000000000000004
+equalMoney('-81.2000', '-81.20')      // true; `===` would say false
+rows.sort((a, b) => compareMoney(a.total, b.total))
+```
+
+For loops over many values, work in `bigint` units of 0.0001 and format once:
+
+```ts
+import { moneyToUnits, unitsToMoney, divideUnits } from '@wickermoney/plugin-sdk/money'
+
+let total = 0n
+for (const row of rows) total += moneyToUnits(row.amount)
+unitsToMoney(divideUnits(total * 26n, 12n))   // scale, then round once
+```
+
+The rules:
+
+- **Strict input.** A plain decimal string with at most four decimal places.
+  Anything else, a fifth decimal place included, throws `RangeError`. Nothing
+  is silently truncated, and the API refuses the same input.
+- **Canonical output.** Four decimal places, never `'-0.0000'`.
+- **One rounding rule.** Only `divideUnits` rounds, half away from zero. That's
+  the API's rule too, so a plugin and the server agree to the unit.
+- **Not for display.** Show amounts with the host's `ctx.formatMoney`, and
+  prefill inputs with `editableMoney` (`'450.0000'` → `'450.00'`).
+
+The string helpers are `addMoney`, `subtractMoney`, `sumMoney`, `negateMoney`,
+`absMoney`, `compareMoney`, `equalMoney`, `isNegativeMoney`, `isZeroMoney`,
+`normalizeMoney`, `editableMoney` and `ZERO_MONEY`; the `bigint` layer is
+`moneyToUnits`, `unitsToMoney`, `divideUnits`, `MONEY_UNIT` and
+`MONEY_SCALE`; the type is `Money`.
+
+## When a plugin is turned off
+
+Since 0.4.0 an owner can turn any plugin off from Settings → Plugins, and
+back on, while the app is open (see [Plugins](../features/plugins)). When
+yours is turned off:
+
+- The host unmounts its pages and widgets. A remote that's already loaded
+  stays in memory but is no longer rendered.
+- Its own server routes answer `404 plugin_disabled`.
+- A core data request carrying its `x-wickermoney-plugin` header gets
+  `403 grant_denied`.
+- Its schema, rows and database role are kept. Turning it back on restores
+  everything.
+
+So don't assume your code runs at every page load, don't depend on a widget
+having mounted since sign-in, and never delete data on unmount.
+
+## Form errors
+
+Since 0.4.0, every `400 validation_failed` from the API carries
+`issues: { path, message }[]` (see [API reference](../api/overview#errors)).
+A bundled plugin's server can attach `issues` in the same shape to its own
+errors, and the host passes them through.
+
+`@wickermoney/ui-kit` turns them into errors on the right fields:
+
+- `useFormErrors()` holds a form's errors. After `show(errors)`, focus moves
+  to the first control marked invalid, or to the `FormError` when no field is.
+- `formErrorsFrom(error, fields, fallback)` maps each issue to one of your
+  field names (a list of dotted paths, or a function from a dotted path to a
+  field name) and returns everything else as one form-level message. An error
+  with no issues becomes a form-level message, its own or `fallback`.
+- `FormError` shows the form-level message. Put it beside the submit button,
+  where the person is looking when the form refuses.
+- `validationIssuesOf(error)` reads the issues on their own. `NO_FORM_ERRORS`
+  and `hasFormErrors` cover the empty case.
+- `Field` and `SelectField` take an `error` (wired to `aria-invalid` and
+  `aria-describedby`) and, since 0.4.0, an optional `hint`.
+
+```tsx
+// `api` is the plugin's scoped client from the SDK.
+import { Field, FormError, Button, formErrorsFrom, useFormErrors } from '@wickermoney/ui-kit'
+
+const { errors, ref, show, clearField } = useFormErrors()
+
+async function save() {
+  try {
+    await api.put('/p/your.plugin.id/thing', { name, amount })
+  } catch (e) {
+    show(formErrorsFrom(e, ['name', 'amount'], 'Could not save that.'))
+  }
+}
+
+return (
+  <form ref={ref} onSubmit={(e) => { e.preventDefault(); void save() }}>
+    <Field label="Name" value={name} error={errors.fields.name}
+           onChange={(e) => { setName(e.target.value); clearField('name') }} />
+    <Field label="Amount" value={amount} error={errors.fields.amount}
+           hint="Up to four decimal places" onChange={(e) => setAmount(e.target.value)} />
+    <Button type="submit">Save</Button>
+    <FormError message={errors.form} />
+  </form>
+)
+```
+
+Check what you can in the browser first, with the same rules the API uses, so
+most mistakes never make a round trip. The server still checks everything.
