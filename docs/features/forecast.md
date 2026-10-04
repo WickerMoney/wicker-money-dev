@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 description: The Forecast page, which projects one account's daily balance from its recurring items.
 ---
 
@@ -63,10 +63,10 @@ owe.
 ## What it doesn't do
 
 The forecast covers **recurring items only**. Everyday purchases that aren't
-recurring items aren't in the line, and the page says so. It also doesn't yet
-know whether an expected item has already been paid. That's the paid/landed
-matching on the
-[roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
+recurring items aren't in the line, and the page says so. What you've
+[matched](./matching) is taken into account: a matched occurrence is already in
+today's balance, skipped and moved occurrences follow your change, and on an
+item you track, a late occurrence is drawn on the first projected day.
 
 For the endpoint, see
 [API reference](../api/overview#recurring-items).
