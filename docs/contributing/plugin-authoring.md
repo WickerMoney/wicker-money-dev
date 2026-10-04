@@ -9,9 +9,9 @@ A plugin is a Module Federation remote plus a manifest, built against
 `@wickermoney/plugin-sdk` and `@wickermoney/ui-kit` (both Apache-2.0). The
 build setup, and the rules that fail at runtime rather than at build time (the
 remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
-paths are relative to the API root), are in the app README's
-[Writing a plugin](https://github.com/wickermoney/wicker-money#writing-a-plugin)
-section. This page covers what changed for plugin code in 0.3.0 and 0.4.0.
+paths are relative to the API root), are in the
+[Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
+section of the app repo's `DEVELOPMENT.md`. This page covers what changed for plugin code in 0.3.0 and 0.4.0.
 
 ## Money: `@wickermoney/plugin-sdk/money`
 
