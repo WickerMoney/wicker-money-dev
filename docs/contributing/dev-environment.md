@@ -20,7 +20,7 @@ a plugin. If you're not sure which yours is, ask in the issue.
 
 ## Requirements
 
-- Node 22+
+- Node 22.22.2+ or 24.15+ (`pnpm install` refuses older versions)
 - pnpm 10 (`corepack enable pnpm`, or `npx pnpm@10` if you'd rather not touch
   corepack)
 - Docker, for a local PostgreSQL
