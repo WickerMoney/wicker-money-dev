@@ -200,7 +200,11 @@ of individually.
 
 ## 5. First login
 
-Open the app and register. Your account takes your browser's time zone, which
+Open the app and register. The first account on an instance is its
+**owner**, the only kind of account that can turn plugins on and off; anyone
+who registers after you is a **member** (see
+[Owners and members](../features/owners-and-members)). Your account takes your
+browser's time zone, which
 decides when "today" turns over for recurring items, "Until payday" and the
 forecast. Check it under **Settings → Time zone** if the browser's zone isn't
 the one you live in. Once the accounts you need exist, close registration: add
