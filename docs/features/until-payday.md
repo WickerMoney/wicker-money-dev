@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 description: The "Until payday" dashboard widget, how safe to spend is worked out, and why accounts are never pooled.
 ---
 
@@ -67,6 +67,8 @@ the budgets plugin is enabled.
 ## Limits
 
 The widget projects the **schedule**. It doesn't know about everyday spending
-that isn't a recurring item, and it doesn't yet know whether an expected item
-has already been paid. Paid/landed matching is next on the
-[roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
+that isn't a recurring item. It does know what you've
+[matched](./matching): a matched occurrence is already in the balance and isn't
+counted again, skipped and moved occurrences follow your change, and on an
+item you track, a late occurrence is still counted, on the first day of the
+window.

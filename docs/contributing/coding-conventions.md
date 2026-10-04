@@ -25,7 +25,11 @@ default:
 
 Money is `numeric(19,4)` in PostgreSQL and `string` in TypeScript — never
 `number`. Floating-point and currency don't mix, and this is the one rule in
-this document that's about correctness rather than style.
+this document that's about correctness rather than style. Do the arithmetic
+with `@wickermoney/plugin-sdk/money` rather than a local helper (see
+[Writing a plugin](./plugin-authoring#money-wickermoneyplugin-sdkmoney)): it
+refuses a fifth decimal place instead of truncating, and rounds the same way
+the API does.
 
 ## Architecture guards (ESLint)
 

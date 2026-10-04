@@ -100,13 +100,11 @@ it before anything happens, and what happens depends on the choice you make:
   - **Removed**: a transfer or debt payment between the two accounts would
     become a transfer from an account to itself, so it's deleted.
 
-## What isn't built yet
+## Did it land?
 
-Matching expected items against the transactions that actually landed
-("paid" or "arrived"), and one-off changes to a single occurrence (skip a
-month, change one month's amount), are the next item on the
-[roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
-Until then, an item is expected on its scheduled date whether or not the money
-has already moved.
+Once a paycheck or bill has posted, match the transaction to the occurrence
+it paid, so Until payday and the Forecast stop counting it as still to come.
+A single occurrence can also be skipped, moved or given a different amount
+without touching the rest of the series. See [Matching](./matching).
 
 For the endpoints behind this page, see [API reference](../api/overview#recurring-items).

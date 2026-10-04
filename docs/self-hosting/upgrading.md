@@ -36,7 +36,10 @@ With the [quickstart's compose file](./quickstart#3-configure), steps 3–5 are
 before the app starts, every time.
 
 A release with no migrations can go back to the previous image as it is. A
-release with migrations can only go back by restoring the backup from step 2.
+release whose migrations all have a `down` can go back by running
+`node dist/db/cli.js down` once per migration, with the **new** image, then
+starting the old one. Otherwise, the only way back is restoring the backup
+from step 2. The version notes below say which kind each release is.
 
 The running API never migrates on its own boot — it only ever holds the
 low-privilege app role's credentials, which deliberately can't create schemas,
@@ -44,6 +47,59 @@ policies or roles. Migrations are always a separate, explicit step against the
 owner role.
 
 ## Version notes
+
+### 0.3.0 → 0.4.0
+
+- **Back up first.** Two migrations, both reversible:
+  - **025** adds the table that remembers dismissed match suggestions, and a
+    unique `(user_id, id)` key on `core.transactions`. Building that index
+    blocks writes (not reads) to transactions for as long as one index build
+    takes.
+  - **026** makes only the first account an owner from now on.
+- **Going back to 0.3.0:** run `node dist/db/cli.js down` twice with the
+  0.4.0 image, then start the 0.3.0 image. That discards dismissed
+  suggestions, and puts back the old default that makes every new account an
+  owner.
+- **Existing accounts keep their role.** Before 0.4.0, every account was
+  registered as an owner, and 026 doesn't change existing rows. If several
+  people signed up on your instance, they are all still owners, and any of
+  them can turn plugins on and off. To check, and to demote with SQL, see
+  [Owners and members](../features/owners-and-members).
+- **For API clients:** `validation_failed` messages are reworded, so a client
+  that matches on message text needs updating. Read `code` and the new
+  `issues` list instead (see [API reference](../api/overview#errors)).
+  `GET /api/v1/transactions?uncategorized=true` no longer returns linked
+  transfer legs.
+- **Building from source** needs Node 22.22.2+ or 24.15+. The container image
+  is unaffected.
+- New: Settings → [Plugins](../features/plugins), matching from the
+  Transactions page and dismissing a suggestion (see
+  [Matching](../features/matching)), and form errors shown on the field
+  they're about.
+
+### 0.2.1 → 0.3.0
+
+- **Back up first. This upgrade can't be rolled back without that backup.**
+  - **023** (budget windows) adds the `btree_gist` extension and a constraint
+    so a category can't have two budget lines on the same day. It's
+    reversible: its `down` deletes any windows and drops the constraint, which
+    leaves monthly lines exactly as 0.2.1 had them. `btree_gist` is a trusted
+    extension, so the non-superuser database owner can create it.
+  - **024** (recurring occurrences) adds the tables behind matching, skips,
+    moves and per-occurrence amounts, and a nullable
+    `core.transactions.recurring_occurrence_id`. It has **no `down`**:
+    dropping it would discard every match and override. Going back to 0.2.1
+    means restoring the backup.
+- **PostgreSQL 15 or later** is required by 024, because its foreign key
+  uses `ON DELETE SET NULL (column)`. 16 was already the documented minimum,
+  so a supported install is unaffected.
+- **For API clients:** budgets refuses a planned amount with more than four
+  decimal places (`400`) instead of quietly truncating it. Recurring
+  occurrence views gain `nominalDate`, `expectedDate` and `status`; `date` is
+  where the list places an occurrence, which for a late one is the first
+  projected day.
+- New: [Matching](../features/matching) for recurring items, and
+  [budget windows](../features/budget-windows).
 
 ### 0.2.0 → 0.2.1
 

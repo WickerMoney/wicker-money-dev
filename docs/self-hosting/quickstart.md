@@ -21,7 +21,7 @@ docker pull ghcr.io/wickermoney/wicker-money:latest
 :::tip[Pin a version once plugins are in the picture]
 `:latest` is fine for a quick look. For anything you'll actually keep
 running, pin a specific tag instead — for example
-`ghcr.io/wickermoney/wicker-money:0.2.1` — and bump it deliberately. Bundled
+`ghcr.io/wickermoney/wicker-money:0.4.0` — and bump it deliberately. Bundled
 plugins ship inside the same image, so an unpinned `:latest` can silently
 change which plugin versions (and which `SDK_MAJOR_VERSION` they expect) you're
 running on your next pull, instead of only when you choose to upgrade. See
@@ -200,7 +200,11 @@ of individually.
 
 ## 5. First login
 
-Open the app and register. Your account takes your browser's time zone, which
+Open the app and register. The first account on an instance is its
+**owner**, the only kind of account that can turn plugins on and off; anyone
+who registers after you is a **member** (see
+[Owners and members](../features/owners-and-members)). Your account takes your
+browser's time zone, which
 decides when "today" turns over for recurring items, "Until payday" and the
 forecast. Check it under **Settings → Time zone** if the browser's zone isn't
 the one you live in. Once the accounts you need exist, close registration: add

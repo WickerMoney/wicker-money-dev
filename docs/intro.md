@@ -12,7 +12,8 @@ plus installable plugins.
 The core owns identity, money movement and the app shell. Everything that
 *interprets* money — budgets, forecasting, FIRE planning,
 importers — is a plugin built against `@wickermoney/plugin-sdk`. A fresh
-install is useful on its own; bundled plugins ship enabled but hold no
+install is useful on its own. Bundled plugins ship enabled, an owner can turn
+any of them off from Settings without losing its data, and they hold no
 privileges a third-party plugin couldn't also request.
 
 :::caution[Pre-1.0, single maintainer]
@@ -27,8 +28,10 @@ for what's shipped versus planned.
 
 - **[Self-hosting](/docs/self-hosting/quickstart)** — run your own instance
   with Docker.
-- **[Features](/docs/features/recurring-items)** — recurring items, the
-  "Until payday" widget, the balance forecast, and your time zone.
+- **[Features](/docs/features/recurring-items)** — recurring items and
+  matching them to what landed, the "Until payday" widget, the balance
+  forecast, budget windows, turning plugins on and off, and owners and
+  members.
 - **[Contributing](/docs/contributing/dev-environment)** — set up a dev
   environment and understand how the codebase is laid out.
 - **[API reference](/docs/api/overview)** — endpoint reference (in progress).
