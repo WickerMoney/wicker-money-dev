@@ -48,6 +48,22 @@ owner role.
 
 ## Version notes
 
+### 0.4.0 → 0.4.1
+
+- **No migrations.** Upgrading is a pull and a restart, and going back to
+  0.4.0 is safe: run the old image as it is.
+- **Add the new starter categories.** 0.4.1 adds **Memberships** (under
+  Subscriptions, for store and shopping memberships such as Costco or
+  Amazon Prime) and **Domains / web hosting** (under Technology). They
+  aren't added to accounts that are already set up. Open **Categories →
+  Run setup again** and finish the wizard: it adds only what's missing and
+  leaves every category you already have as it is, renames included.
+- **Domains / web hosting needs the tech answer.** It's created when the
+  setup question about smart home, networking, gaming or web hosting is
+  ticked (the wording now mentions hosting). Memberships is in everyone's
+  base set.
+- **For API clients:** nothing changed. The catalog is two entries larger.
+
 ### 0.3.0 → 0.4.0
 
 - **Back up first.** Two migrations, both reversible:

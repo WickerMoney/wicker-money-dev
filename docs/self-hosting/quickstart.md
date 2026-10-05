@@ -21,7 +21,7 @@ docker pull ghcr.io/wickermoney/wicker-money:latest
 :::tip[Pin a version once plugins are in the picture]
 `:latest` is fine for a quick look. For anything you'll actually keep
 running, pin a specific tag instead — for example
-`ghcr.io/wickermoney/wicker-money:0.4.0` — and bump it deliberately. Bundled
+`ghcr.io/wickermoney/wicker-money:0.4.1` — and bump it deliberately. Bundled
 plugins ship inside the same image, so an unpinned `:latest` can silently
 change which plugin versions (and which `SDK_MAJOR_VERSION` they expect) you're
 running on your next pull, instead of only when you choose to upgrade. See
