@@ -53,7 +53,7 @@ IPs) is set at the registrar, not in this repo.
 ```
 docs/
 ├── intro.md
-├── self-hosting/     quickstart, configuration reference, upgrading
+├── self-hosting/     quickstart, configuration reference, upgrading, release tags
 ├── contributing/      dev environment, architecture, conventions, PRs
 └── api/               reference (hand-maintained stub until an OpenAPI
                         spec exists to generate it from)
