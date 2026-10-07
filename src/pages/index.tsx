@@ -48,11 +48,10 @@ function HomepageHeader() {
 }
 
 export default function Home(): ReactNode {
-  const { siteConfig } = useDocusaurusContext()
   return (
     <Layout
-      title={siteConfig.title}
-      description="Wicker Money is a self-hostable personal finance app: a thin core plus installable plugins."
+      title="Docs: self-hosting, plugins and API"
+      description="Documentation for Wicker Money, a self-hostable personal finance app: run it with Docker, build plugins with the SDK, and use the API."
     >
       <HomepageHeader />
       <main>
