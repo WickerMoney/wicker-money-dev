@@ -24,7 +24,7 @@ without them.
 |---|---|---|
 | `DATABASE_URL` | *required* | The app connects as `wickermoney_app` — a non-superuser, non-owner role. Row-level security is unconditionally bypassed by superusers, so this is load-bearing, not a convention. |
 | `DATABASE_OWNER_URL` | *required* | Same database, connected as the owner. Only used for migrations (creating schemas, policies, `SECURITY DEFINER` functions) — never for reading application data, and never a "migrate from" source. |
-| `APP_DB_PASSWORD` | *required* | Migrations create `wickermoney_app` as `NOLOGIN` with no password (a migration file is the wrong place for a secret) and grant `LOGIN` using this value. Must match the password in `DATABASE_URL`. |
+| `APP_DB_PASSWORD` | *required* | Migrations create `wickermoney_app` as `NOLOGIN` with no password (a migration file is the wrong place for a secret) and grant `LOGIN` using this value. Must match the password in `DATABASE_URL`. A placeholder such as `CHANGE_ME` is refused in production (see [Placeholder credentials](./upgrading#placeholder-credentials)). |
 | `APP_DB_ROLE` | `wickermoney_app` | Override only when several environments share one PostgreSQL *server* — roles are cluster-wide, so two environments reusing a role name means whichever migrated last owns the password. |
 
 ## Logging
@@ -37,7 +37,7 @@ without them.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `AUTH_SECRET` | *required* | Generate with `openssl rand -base64 48`. Signs access tokens **and** derives the key that signs the per-request tenant context every row-level security policy checks. After changing it, re-run migrations before starting the API, or it refuses to boot. |
+| `AUTH_SECRET` | *required* | Generate with `openssl rand -base64 48`. Signs access tokens **and** derives the key that signs the per-request tenant context every row-level security policy checks. After changing it, re-run migrations before starting the API, or it refuses to boot. In production a placeholder value (`change-me`, `CHANGE_ME`, `changeme`, …) is refused: see [Placeholder credentials](./upgrading#placeholder-credentials). |
 | `AUTH_ACCESS_TTL_SECONDS` | `900` | Access token lifetime (15 min). |
 | `AUTH_REFRESH_TTL_SECONDS` | `2592000` | Refresh token lifetime (30 days). The refresh token is an HttpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth`, rotated on every use — presenting an already-used one revokes the whole session as suspected theft. |
 | `COOKIE_SECURE` | `true` in production | Whether the refresh cookie carries `Secure` (HTTPS-only). Browsers refuse a `Secure` cookie over plain HTTP, so local development on `http://localhost` needs `false`. |
