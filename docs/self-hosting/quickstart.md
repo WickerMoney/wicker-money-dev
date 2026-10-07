@@ -21,7 +21,7 @@ docker pull ghcr.io/wickermoney/wicker-money:latest
 :::tip[Pin a version once plugins are in the picture]
 `:latest` is fine for a quick look. For anything you'll actually keep
 running, pin a specific tag instead — for example
-`ghcr.io/wickermoney/wicker-money:0.4.1` — and bump it deliberately. Bundled
+`ghcr.io/wickermoney/wicker-money:0.4.2` — and bump it deliberately. Bundled
 plugins ship inside the same image, so an unpinned `:latest` can silently
 change which plugin versions (and which `SDK_MAJOR_VERSION` they expect) you're
 running on your next pull, instead of only when you choose to upgrade. See
@@ -159,12 +159,18 @@ volumes:
 and create a `.env` next to it:
 
 ```bash title=".env"
-POSTGRES_PASSWORD=CHANGE_ME
-APP_DB_PASSWORD=CHANGE_ME
+POSTGRES_PASSWORD=
+APP_DB_PASSWORD=
 AUTH_SECRET=
 ```
 
-Generate `AUTH_SECRET` with `openssl rand -base64 48`. It signs access tokens
+Fill in all three. Generate the two database passwords with
+`openssl rand -hex 24` (letters and digits only, since the password goes inside
+a connection URL) and `AUTH_SECRET` with `openssl rand -base64 48`. Left blank,
+Compose stops with an "is required" error; left as a placeholder such as
+`CHANGE_ME`, the app refuses to start (0.4.2 and later; see
+[Placeholder credentials](./upgrading#placeholder-credentials)). `AUTH_SECRET`
+signs access tokens
 *and* derives the key that signs the per-request tenant context every
 row-level security policy checks — treat it like a database credential, not a
 cosmetic setting.
@@ -225,9 +231,9 @@ has no service named `postgres` left to build that connection string from
 once the block is gone:
 
 ```bash title=".env"
-DATABASE_URL=postgresql://wickermoney_app:CHANGE_ME@your-postgres-host:5432/wickermoney
-DATABASE_OWNER_URL=postgresql://wickermoney:CHANGE_ME@your-postgres-host:5432/wickermoney
-APP_DB_PASSWORD=CHANGE_ME
+DATABASE_URL=postgresql://wickermoney_app:<app password>@your-postgres-host:5432/wickermoney
+DATABASE_OWNER_URL=postgresql://wickermoney:<owner password>@your-postgres-host:5432/wickermoney
+APP_DB_PASSWORD=<the same app password>
 AUTH_SECRET=
 ```
 

@@ -48,6 +48,26 @@ owner role.
 
 ## Version notes
 
+### 0.4.1 → 0.4.2
+
+- **No migrations.** Upgrading is a pull and a restart, and going back to
+  0.4.1 is safe: run the old image as it is.
+- **Check for placeholder passwords first.** 0.4.2 refuses to start in
+  production if `AUTH_SECRET` or the app database password still looks like a
+  placeholder (`change-me`, `change_me`, `CHANGE_ME` or the other throwaway
+  values listed under [Placeholder credentials](#placeholder-credentials)).
+  If you generated real values, as the quickstart says to, nothing changes.
+  If not, fix it before you pull: it takes two minutes, and the section below
+  has the steps.
+- **Phones and narrow windows.** The sidebar becomes a drawer, and Transactions,
+  Accounts, Recurring and Categories show as cards. Categories and Rules are
+  collapsible, and row actions are icon buttons.
+- **Accessibility.** Each page has its own tab title, there is a "Skip to
+  content" link, and the light-mode warning colour is darker.
+- **Matching.** The Transactions page finds recurring-item matches for the
+  newest transactions on a long ledger, where it could miss them before.
+- **For API clients:** nothing changed.
+
 ### 0.4.0 → 0.4.1
 
 - **No migrations.** Upgrading is a pull and a restart, and going back to
@@ -160,6 +180,96 @@ versioned separately from the app itself. `SDK_MAJOR_VERSION` is not frozen
 yet ([roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md)
 item, targeted ahead of 1.0), so a bundled plugin can still change shape
 between app releases.
+
+## Placeholder credentials
+
+From 0.4.2, with `NODE_ENV=production` (the container image's default), the API
+and the `migrate` step refuse to start when `AUTH_SECRET` or `DATABASE_URL`
+contains a placeholder or throwaway value: `change-me`, `change_me`,
+`changeme`, `testpw` or `_dev_password`, in any case (so the quickstart's old
+`CHANGE_ME` counts). A placeholder is publicly known: with a known
+`AUTH_SECRET` anyone can forge a sign-in. The check never prints the value, and
+no data is touched when it refuses.
+
+You'll see this in `docker compose logs migrate` (or `wickermoney`):
+
+```text
+Invalid configuration:
+  AUTH_SECRET contain a development credential. Refusing to start with NODE_ENV=production.
+```
+
+### Are you affected?
+
+Only if you left a placeholder in place. In the folder with your `.env`:
+
+```bash
+grep -i -E "change[-_]?me|testpw|_dev_password" .env
+```
+
+No output means you are fine. `POSTGRES_PASSWORD` (the owner password) is not
+checked, so a hit there alone doesn't stop anything; see
+[rotating the owner password](#rotating-the-owner-password) if you want to
+change it anyway.
+
+### Fix it (Docker Compose)
+
+1. **Pick new values** and put them in `.env`:
+
+   ```bash
+   openssl rand -base64 48   # AUTH_SECRET
+   openssl rand -hex 24      # APP_DB_PASSWORD
+   ```
+
+   Use `-hex` for the database password: it is placed inside a connection URL,
+   and `+`, `/` and `=` from base64 would break it. You only need to replace the
+   ones that were placeholders.
+
+2. **Start the stack.** `migrate` runs first, every time:
+
+   ```bash
+   docker compose pull
+   docker compose up -d
+   ```
+
+   It reinstalls the tenant key from the new `AUTH_SECRET` and sets the app
+   database role's password to the new `APP_DB_PASSWORD`. Look for these two
+   lines in `docker compose logs migrate`:
+
+   ```text
+   Tenant context key installed from AUTH_SECRET.
+   Role 'wickermoney_app' configured: LOGIN granted, password set.
+   ```
+
+3. **Sign in again** if you changed `AUTH_SECRET`: every session is signed out.
+   Nothing else is lost. Changing only `APP_DB_PASSWORD` signs nobody out.
+
+If you pulled 0.4.2 first and it stopped, nothing is damaged: edit `.env` and
+run `docker compose up -d` again.
+
+### Fix it (without the sample compose)
+
+Set `AUTH_SECRET`, and the same new password in `DATABASE_URL` and
+`APP_DB_PASSWORD`, then run migrations with the owner credentials before
+starting the app, as in the [general procedure](#general-procedure):
+
+```bash
+docker run --rm --env-file .env wickermoney node dist/db/cli.js up
+```
+
+### Rotating the owner password
+
+`POSTGRES_PASSWORD` only sets the owner password when the database is first
+created, so editing `.env` later changes nothing in the database. To rotate it,
+change the role first, then `.env`:
+
+```bash
+docker compose exec -it postgres psql -U wickermoney -d wickermoney
+# then, at the psql prompt:
+\password wickermoney
+```
+
+Set the same value as `POSTGRES_PASSWORD` in `.env` afterwards, so `migrate`
+can still connect.
 
 ## After changing `AUTH_SECRET`
 
