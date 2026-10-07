@@ -15,6 +15,35 @@ const config: Config = {
     { tagName: 'link', attributes: { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/img/favicon-16.png' } },
     { tagName: 'link', attributes: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/img/favicon-32.png' } },
     { tagName: 'link', attributes: { rel: 'apple-touch-icon', href: '/img/apple-touch-icon.png' } },
+    // Who publishes the docs, and the site itself, as schema.org JSON-LD.
+    // Docusaurus already adds a BreadcrumbList to each docs page.
+    {
+      tagName: 'script',
+      attributes: { type: 'application/ld+json' },
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            '@id': 'https://wicker.money/#organization',
+            name: 'Wicker Money',
+            url: 'https://wicker.money/',
+            logo: 'https://wicker.money/img/wickermoney-logo-primary.png',
+            email: 'support@wicker.money',
+            sameAs: ['https://github.com/wickermoney', 'https://github.com/wickermoney/wicker-money'],
+          },
+          {
+            '@type': 'WebSite',
+            '@id': 'https://wickermoney.dev/#website',
+            url: 'https://wickermoney.dev/',
+            name: 'Wicker Money Docs',
+            description: 'Self-hosting, plugin development and API documentation for Wicker Money.',
+            inLanguage: 'en',
+            publisher: { '@id': 'https://wicker.money/#organization' },
+          },
+        ],
+      }),
+    },
   ],
 
   future: {
@@ -56,6 +85,15 @@ const config: Config = {
         // reference). Product/company blogging, if it happens, belongs on the
         // marketing site (wicker-money-marketing), not here.
         blog: false,
+        // Search engines ignore changefreq and priority; leaving them out keeps
+        // the sitemap to plain URLs.
+        sitemap: {
+          changefreq: null,
+          priority: null,
+          // Docusaurus's auto-generated category index pages are thin link
+          // lists, not content worth ranking.
+          ignorePatterns: ['/docs/category/**'],
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -64,7 +102,16 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // 1200x630, the size link previews crop to. Docusaurus emits og:image and
+    // twitter:image (summary_large_image) from this.
     image: 'img/social-card.png',
+    metadata: [
+      { property: 'og:site_name', content: 'Wicker Money Docs' },
+      { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      { property: 'og:image:alt', content: 'Wicker Money developer documentation: self-hosting, the plugin SDK and the API reference.' },
+      { name: 'theme-color', content: '#0c301c' },
+    ],
     colorMode: {
       // Defaults to the visitor's system preference; the navbar switch (below)
       // still lets them override and remembers the choice, same shape as the
