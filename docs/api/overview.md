@@ -213,7 +213,11 @@ The budgets plugin's routes, under `/api/v1/p/wickermoney.budgets`. Amounts
 are decimal strings with at most four decimal places. Since 0.3.0 a fifth
 decimal place is refused with `400 bad_planned` instead of being truncated,
 the same as the rest of the API, and a JSON number is refused rather than
-coerced.
+coerced. Since 0.5.0, an id sent to these routes must be one PostgreSQL
+could have generated (the canonical hyphenated form with a valid version and
+variant); anything else gets the usual `400` instead of reaching the database.
+The same rule applies to the CSV Import routes. Ids from the app are
+unaffected.
 
 | Method and path | What it does |
 |---|---|
