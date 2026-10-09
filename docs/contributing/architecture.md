@@ -14,9 +14,12 @@ source once a decision is ready to publish.
 ## PostgreSQL is a hard requirement, not a preference
 
 Wicker Money is a thin core plus installable plugins. Each plugin declares a
-`requiredTables` manifest field, and the host enforces it: a plugin that asks
-for `transactions` and `categories` must not be able to reach `accounts`, and
-must see only the current user's rows within the tables it *does* get.
+`requiredTables` manifest field, and PostgreSQL enforces it for the plugin's
+server-side code: a plugin that asks for `transactions` and `categories` must
+not be able to reach `accounts`, and must see only the current user's rows
+within the tables it *does* get. A plugin's UI code is different: it runs in
+the app's origin as the signed-in user, so `requiredTables` doesn't restrict
+it (see [Trust boundary for UI plugins](#trust-boundary-for-ui-plugins)).
 
 Every mechanism that enforcement needs is PostgreSQL-specific — a
 non-superuser, non-owner application role holding only DML; row-level
@@ -75,6 +78,24 @@ protect against a plugin that regains the application role's own table
 privileges after `RESET ROLE` — that's why the current model only installs
 *trusted* plugins; genuine third-party plugin isolation needs connection-level
 isolation that doesn't exist yet.
+
+## Trust boundary for UI plugins
+
+Plugin pages and widgets are loaded over Module Federation and run **fully
+trusted, in the host's origin**. They share the page, its memory and the
+signed-in user's session with the host. The scoped client, the
+`x-wickermoney-plugin` header and the manifest check in `ctx.api` catch
+mistakes early; they are not a security boundary. UI code that wants to can
+call any `/api/v1/*` route the user can, including routes outside its
+`requiredTables` and data export. What is enforced is the per-plugin
+PostgreSQL role, and only for server-side plugin code, which today means
+bundled plugins.
+
+So third-party plugin install stays unsupported, and `PLUGIN_REMOTE_ORIGINS`
+stays empty by default. ADR 0005 in the app repo (status: proposed) lays out
+the options for closing the gap: sandboxed iframes behind a message broker,
+scoped per-plugin tokens as hardening, and review or signing as an admission
+control. Nothing in it is decided or built yet.
 
 ## Interpreting money is a plugin's job
 
