@@ -48,6 +48,43 @@ owner role.
 
 ## Version notes
 
+### 0.4.2 → 0.5.0
+
+- **Back up first.** Two migrations, both reversible. One adds
+  `plugin_budgets.account_lines` for
+  [account allowances](../features/budget-account-allowances). The other
+  replaces the `core.register_user` function and adds
+  `core.instance_has_users()` for `BOOTSTRAP_OWNER_EMAIL`. Going back to 0.4.2
+  is `node dist/db/cli.js down` twice with the 0.5.0 image, then starting the
+  old image. That discards account allowances and restores the earlier
+  registration function.
+- **Name your owner before the first start** if the instance has no accounts
+  yet and other people can reach it: set `BOOTSTRAP_OWNER_EMAIL` to your
+  address (see [Owners and members](../features/owners-and-members#choosing-who-the-owner-is)).
+  Unset, nothing changes: the first account to register is the owner. An
+  existing instance keeps every account's role either way. In production the
+  API now logs a warning at start-up when the instance has no accounts,
+  registration is open and the variable is unset.
+- **Account allowances.** The Budgets page gains an "Account allowances"
+  section, and the Budgets plugin now asks for read access to accounts. An
+  account with an allowance counts as in use, so deleting it asks for the
+  usual confirmation.
+- **A faster dashboard.** The three dashboard widgets that read the monthly
+  summary now make one request. It is a browser-side change only; see
+  [Reads are shared between widgets](../contributing/plugin-authoring#reads-are-shared-between-widgets).
+- **Plugin trust wording.** The docs, `SECURITY.md` and `.env.example` now
+  say plainly that plugin UI code runs fully trusted in the app's origin.
+  Behaviour is unchanged. Keep `PLUGIN_REMOTE_ORIGINS` empty unless you fully
+  trust every origin you list.
+- **For API clients:** the Budgets and CSV Import routes refuse an id that
+  PostgreSQL could not have generated (a version digit of 0, say) with the
+  usual `400`. Ids from the app are unaffected. The Budgets routes gain
+  `PUT /account-line` and `DELETE /account-line`, and the Budgets export
+  gains `accountLines`.
+- **For plugin authors:** `@wickermoney/plugin-sdk/server` is new and
+  additive; nothing already published moved. See
+  [Writing a plugin](../contributing/plugin-authoring#server-contract-wickermoneyplugin-sdkserver).
+
 ### 0.4.1 → 0.4.2
 
 - **No migrations.** Upgrading is a pull and a restart, and going back to
