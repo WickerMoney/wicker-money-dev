@@ -224,6 +224,8 @@ coerced.
 | `GET /at-risk` | The Budget breakdown widget's ranking |
 | `PUT /window` | Create a [budget window](../features/budget-windows), or update one with `id`. Body `{ id?, categoryId, start, through, planned, note? }`; both dates are included. `409 overlaps` when the category already has a line on any of those days |
 | `DELETE /window?id=` | Remove a window |
+| `PUT /account-line` | Create or update an [account allowance](../features/budget-account-allowances). Body `{ month, accountId, planned, rollover?, excludedCategoryIds?, note? }`; `rollover` defaults to true. `400 bad_account` unless the account is a checking account of yours, `400 bad_excluded` for a category that isn't yours |
+| `DELETE /account-line?month=&accountId=` | Remove an account allowance for one month |
 
 ## In the meantime
 

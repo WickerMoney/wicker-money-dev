@@ -25,7 +25,7 @@ The bundled plugins are:
 
 | Plugin | Id | Adds |
 |---|---|---|
-| Budgets | `wickermoney.budgets` | The Budgets page, including [budget windows](./budget-windows), and the Budget breakdown widget |
+| Budgets | `wickermoney.budgets` | The Budgets page, including [budget windows](./budget-windows) and [account allowances](./budget-account-allowances), and the Budget breakdown widget |
 | CSV Import | `wickermoney.import-csv` | The Import page |
 | Forecast | `wickermoney.forecast` | The [Forecast](./forecast) page |
 | Insights | `wickermoney.insights` | The Money in and out and Where it went dashboard widgets |
