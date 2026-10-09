@@ -210,7 +210,12 @@ of individually.
 Open the app and register. The first account on an instance is its
 **owner**, the only kind of account that can turn plugins on and off; anyone
 who registers after you is a **member** (see
-[Owners and members](../features/owners-and-members)). Your account takes your
+[Owners and members](../features/owners-and-members)). On a server other
+people can reach, don't leave that to a race: from 0.5.0 you can add
+`- BOOTSTRAP_OWNER_EMAIL=you@example.com` to the `wickermoney` service's
+`environment:` list before the first start, and only the account registered
+with that address becomes the owner. Addresses aren't verified, so register
+straight away either way. Your account takes your
 browser's time zone, which
 decides when "today" turns over for recurring items, "Until payday" and the
 forecast. Check it under **Settings → Time zone** if the browser's zone isn't
