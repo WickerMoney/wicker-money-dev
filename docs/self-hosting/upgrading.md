@@ -50,14 +50,14 @@ owner role.
 
 ### 0.4.2 → 0.5.0
 
-- **Back up first.** Two migrations, both reversible. One adds
-  `plugin_budgets.account_lines` for
-  [account allowances](../features/budget-account-allowances). The other
-  replaces the `core.register_user` function and adds
-  `core.instance_has_users()` for `BOOTSTRAP_OWNER_EMAIL`. Going back to 0.4.2
-  is `node dist/db/cli.js down` twice with the 0.5.0 image, then starting the
-  old image. That discards account allowances and restores the earlier
-  registration function.
+- **Back up first.** Two migrations, both reversible:
+  - **027** adds `plugin_budgets.account_lines` for
+    [account allowances](../features/budget-account-allowances).
+  - **028** replaces the `core.register_user` function and adds
+    `core.instance_has_users()` for `BOOTSTRAP_OWNER_EMAIL`.
+- **Going back to 0.4.2:** run `node dist/db/cli.js down` twice with the
+  0.5.0 image, then start the old image. That discards account allowances and
+  restores the earlier registration function.
 - **Name your owner before the first start** if the instance has no accounts
   yet and other people can reach it: set `BOOTSTRAP_OWNER_EMAIL` to your
   address (see [Owners and members](../features/owners-and-members#choosing-who-the-owner-is)).
