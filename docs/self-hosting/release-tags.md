@@ -11,14 +11,14 @@ version tags stay put; the other three move.
 
 | Tag | Points at | Moves when | Use it for |
 |---|---|---|---|
-| `:0.4.1` (a version) | That exact release | Never | Anything you keep running |
+| `:0.5.0` (a version) | That exact release | Never | Anything you keep running |
 | `:latest` | The newest stable release | A stable tag is released | A first look, or tracking releases on purpose |
-| `:next` | The newest prerelease (`0.5.0-rc.1`) | A prerelease tag is released | Trying a release candidate before it ships |
+| `:next` | The newest prerelease (`0.6.0-rc.1`) | A prerelease tag is released | Trying a release candidate before it ships |
 | `:edge` | The newest commit on `main` | Every merge to `main` | Trying unreleased work |
 
 ## Version tags
 
-A release `v0.4.1` on GitHub is the image tag `:0.4.1`, without the `v`. A
+A release `v0.5.0` on GitHub is the image tag `:0.5.0`, without the `v`. A
 version tag is written once and never rewritten, so a compose file that pins
 one pulls the same image every time. This is what the
 [quickstart](./quickstart#1-get-an-image) recommends for anything you keep.
@@ -35,12 +35,12 @@ the image, so a pull can change which plugin versions you're running.
 
 ## `:next`
 
-A tag with a hyphen, such as `v0.5.0-rc.1`, is a prerelease. It publishes the
-version tag `:0.5.0-rc.1` and moves `:next`, and it never touches `:latest`.
+A tag with a hyphen, such as `v0.6.0-rc.1`, is a prerelease. It publishes the
+version tag `:0.6.0-rc.1` and moves `:next`, and it never touches `:latest`.
 The release is marked as a prerelease on GitHub.
 
-`:next` is not "newer than `:latest`". Once `0.5.0` ships, `:latest` is
-`0.5.0` and `:next` stays on `0.5.0-rc.2` until the following release
+`:next` is not "newer than `:latest`". Once `0.6.0` ships, `:latest` is
+`0.6.0` and `:next` stays on `0.6.0-rc.2` until the following release
 candidate. The npm packages follow the same rule: the stable release goes
 under the `latest` dist-tag and a prerelease under `next`.
 
@@ -85,9 +85,9 @@ same build:
 ```yaml
 services:
   migrate:
-    image: ghcr.io/wickermoney/wicker-money:0.4.1
+    image: ghcr.io/wickermoney/wicker-money:0.5.0
   wickermoney:
-    image: ghcr.io/wickermoney/wicker-money:0.4.1
+    image: ghcr.io/wickermoney/wicker-money:0.5.0
 ```
 
 For one exact build of `main`, use `:edge-<short sha>` in both places instead.
