@@ -56,9 +56,11 @@ A member sees the plugins that are on, read-only.
 
 A plugin's pages and widgets run inside the app, in its own origin, with the
 same access to your data as you have. The tables a manifest asks for
-(`requiredTables`) are enforced by PostgreSQL for a plugin's server-side
-code, which only the bundled plugins have; they don't restrict its front-end
-code. That is why installing third-party plugins isn't supported, and why
+(`requiredTables`) are guarded by a per-plugin PostgreSQL role for a plugin's
+server-side code, which only the bundled plugins have; they don't restrict its
+front-end code at all. Even that server-side guard is there to catch honest
+mistakes, not to stop crafted SQL, so it is a guardrail rather than a
+sandbox. That is why installing third-party plugins isn't supported, and why
 `PLUGIN_REMOTE_ORIGINS` should stay empty unless you trust every origin you
 list.
 
