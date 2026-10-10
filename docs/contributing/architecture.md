@@ -92,10 +92,11 @@ PostgreSQL role, and only for server-side plugin code, which today means
 bundled plugins.
 
 So third-party plugin install stays unsupported, and `PLUGIN_REMOTE_ORIGINS`
-stays empty by default. ADR 0005 in the app repo (status: proposed) lays out
-the options for closing the gap: sandboxed iframes behind a message broker,
-scoped per-plugin tokens as hardening, and review or signing as an admission
-control. Nothing in it is decided or built yet.
+stays empty by default. The options for closing the gap are being weighed in
+a draft decision record that isn't published yet: sandboxed iframes behind a
+message broker, scoped per-plugin tokens as hardening, and review or signing
+as an admission control. Nothing is decided or built yet, and it will appear
+here once it is.
 
 ## Interpreting money is a plugin's job
 
