@@ -26,8 +26,8 @@ plugins ship inside the same image, so an unpinned `:latest` can silently
 change which plugin versions (and which `SDK_MAJOR_VERSION` they expect) you're
 running on your next pull, instead of only when you choose to upgrade. See
 [Upgrading](./upgrading) for how the app version and the plugin contract
-version relate, and [Release tags](./release-tags) for what `:latest`, `:next`
-and `:edge` each mean.
+version relate, and [Release tags](./release-tags) for what `:latest` and
+`:edge` each mean.
 :::
 
 ## 2. Create the network and volumes
