@@ -11,7 +11,9 @@ build setup, and the rules that fail at runtime rather than at build time (the
 remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
-section of the app repo's `DEVELOPMENT.md`. This page covers what changed for plugin code from 0.3.0 to 0.5.0.
+section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
+plugin code from 0.3.0 to 0.5.0, plus two SDK changes merged since that are not
+in a release yet.
 
 ## Stability tiers
 
@@ -26,6 +28,7 @@ README and tagged `@stable` or `@experimental` in its module documentation.
 | `@wickermoney/plugin-sdk/runtime` | stable |
 | `@wickermoney/plugin-sdk/money` | stable |
 | `@wickermoney/plugin-sdk/server` | stable |
+| `@wickermoney/plugin-sdk/date` | stable |
 | `@wickermoney/plugin-sdk/recurrence` | experimental |
 
 - **Stable.** A breaking change (a removed or renamed export, a changed
@@ -37,17 +40,35 @@ README and tagged `@stable` or `@experimental` in its module documentation.
   but no migration note is promised, so re-check it on each upgrade.
 - An export keeps the tier of the entry point it comes from, however it is
   imported: `occurrences` is experimental even when imported from the root.
+  `addDays` is stable from the root only because the root takes it from
+  `/date`; it used to come from `/recurrence` and was experimental.
 - Until `SDK_MAJOR_VERSION` is frozen at 1, the whole contract can still move
   between minor releases. The tiers say how much notice to expect and which
   parts are settled.
 
-No `./recurrence` export was removed in 0.5.0.
+No `./recurrence` export was removed in 0.5.0, and none has been removed since.
 
 ### Calendar helpers: `addDays` and `addMonths`
 
-Also new in 0.5.0, exported from `@wickermoney/plugin-sdk/recurrence` and the
-package root, in place of the copies the app and Budgets each carried:
+*Added in 0.5.0 on `/recurrence`. Moved to the stable `/date` entry point since;
+not in a release yet.*
 
+Import them from `@wickermoney/plugin-sdk/date`:
+
+```ts
+import { addDays, addMonths } from '@wickermoney/plugin-sdk/date'
+
+addDays('2026-12-31', 1)     // '2027-01-01'
+addMonths('2026-08-31', 6)   // '2027-02-28' ('2028-02-29' in a leap year)
+addMonths('2026-03-31', -1)  // '2026-02-28'
+```
+
+- `/date` has no dependencies and is safe in the browser and in Node.
+  Importing it pulls in nothing else from the SDK.
+- Behaviour did not change in the move. `/recurrence` and the package root
+  still export both helpers, so existing imports keep working. New code should
+  import from `/date`, because that is the stable entry point (see the tier
+  rule above).
 - `addDays(date, days)` and `addMonths(date, months)` work on `YYYY-MM-DD`
   strings with no time zone involved, and accept negative values.
 - `addMonths` clamps to the last day of a shorter month, so Aug 31 plus 6
@@ -57,6 +78,42 @@ package root, in place of the copies the app and Budgets each carried:
   `RangeError`. An impossible date such as `2026-02-30` no longer rolls over
   to March 2. If you wrote your own helper with that rollover, check what you
   pass to the SDK's.
+
+## Validating a manifest
+
+`parseManifest` checks an untrusted manifest against the SDK's schema. It is
+exported from the package root and does not throw:
+
+```ts
+import { parseManifest } from '@wickermoney/plugin-sdk'
+
+const result = parseManifest(input)
+if ('error' in result) throw new Error(result.error)
+const { manifest } = result
+```
+
+- On success you get `{ manifest }`. On failure you get `{ error }`, a readable
+  message with each problem as `path: message`, separated by `; `.
+- It also rejects a manifest built against a newer SDK major version than the
+  host's.
+- The `PluginManifest`, `TableGrant`, `WidgetContribution` and
+  `PageContribution` types and `checkRemoteEntry` are exported from the root as
+  before.
+- `parseManifest` uses Zod, so `zod` stays a dependency of the SDK and
+  importing the root still brings it in. Keep value imports from the root out
+  of plugin UI bundles; `/runtime` is the entry point for browser code.
+
+:::caution[Breaking, not released yet: the manifest Zod schemas are gone from the root]
+`pluginManifestSchema`, `tableGrantSchema`, `widgetContributionSchema`,
+`pageContributionSchema` and `remoteEntrySchema` are no longer exported from
+`@wickermoney/plugin-sdk`. Exporting them tied the stable root to Zod's major
+version. If you imported one to validate a manifest, call `parseManifest(input)`
+instead. It returns a result rather than throwing, so replace a `try`/`catch`
+around `schema.parse` with the `'error' in result` check above.
+
+The manifest shape and `SDK_MAJOR_VERSION` are unchanged, so existing manifests
+still load.
+:::
 
 ## Money: `@wickermoney/plugin-sdk/money`
 
