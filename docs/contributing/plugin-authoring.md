@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-description: Rules for plugin code that the manifest schema doesn't tell you, money arithmetic with the SDK, what happens when a plugin is turned off, and showing form errors.
+description: Rules for plugin code that the manifest schema doesn't tell you, money arithmetic with the SDK, the server contract, shared reads, what happens when a plugin is turned off, and showing form errors.
 ---
 
 # Writing a plugin
@@ -11,7 +11,52 @@ build setup, and the rules that fail at runtime rather than at build time (the
 remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
-section of the app repo's `DEVELOPMENT.md`. This page covers what changed for plugin code in 0.3.0 and 0.4.0.
+section of the app repo's `DEVELOPMENT.md`. This page covers what changed for plugin code from 0.3.0 to 0.5.0.
+
+## Stability tiers
+
+*Added in 0.5.0.*
+
+Every `@wickermoney/plugin-sdk` entry point has a tier, listed in the package
+README and tagged `@stable` or `@experimental` in its module documentation.
+
+| Import | Tier |
+|---|---|
+| `@wickermoney/plugin-sdk` (manifest, dashboard range) | stable |
+| `@wickermoney/plugin-sdk/runtime` | stable |
+| `@wickermoney/plugin-sdk/money` | stable |
+| `@wickermoney/plugin-sdk/server` | stable |
+| `@wickermoney/plugin-sdk/recurrence` | experimental |
+
+- **Stable.** A breaking change (a removed or renamed export, a changed
+  signature, type, return value or error) comes with a `BREAKING CHANGE`
+  commit footer, an entry under **Breaking** in the changelog and a migration
+  note. Additions are not breaking.
+- **Experimental.** May change in any pre-1.0 minor release, including
+  removals and reshaped types. Changes are still recorded in the changelog,
+  but no migration note is promised, so re-check it on each upgrade.
+- An export keeps the tier of the entry point it comes from, however it is
+  imported: `occurrences` is experimental even when imported from the root.
+- Until `SDK_MAJOR_VERSION` is frozen at 1, the whole contract can still move
+  between minor releases. The tiers say how much notice to expect and which
+  parts are settled.
+
+No `./recurrence` export was removed in 0.5.0.
+
+### Calendar helpers: `addDays` and `addMonths`
+
+Also new in 0.5.0, exported from `@wickermoney/plugin-sdk/recurrence` and the
+package root, in place of the copies the app and Budgets each carried:
+
+- `addDays(date, days)` and `addMonths(date, months)` work on `YYYY-MM-DD`
+  strings with no time zone involved, and accept negative values.
+- `addMonths` clamps to the last day of a shorter month, so Aug 31 plus 6
+  months is Feb 28 (Feb 29 in a leap year). Each call clamps on its own, so add
+  the total to the original date rather than stepping a month at a time.
+- Anything that isn't a real calendar date or a whole number throws
+  `RangeError`. An impossible date such as `2026-02-30` no longer rolls over
+  to March 2. If you wrote your own helper with that rollover, check what you
+  pass to the SDK's.
 
 ## Money: `@wickermoney/plugin-sdk/money`
 
@@ -56,6 +101,63 @@ The string helpers are `addMoney`, `subtractMoney`, `sumMoney`, `negateMoney`,
 `normalizeMoney`, `editableMoney` and `ZERO_MONEY`; the `bigint` layer is
 `moneyToUnits`, `unitsToMoney`, `divideUnits`, `MONEY_UNIT` and
 `MONEY_SCALE`; the type is `Money`.
+
+## Server contract: `@wickermoney/plugin-sdk/server`
+
+*Added in 0.5.0.*
+
+A bundled plugin's server code exports a `register` function that the API
+calls with a route context. The types for that, which each plugin used to
+copy, now live in one subpath:
+
+```ts
+import { PluginRouteError, isUuid } from '@wickermoney/plugin-sdk/server'
+import type { RouteContext, RegisterRoute, Query, RunAsPlugin } from '@wickermoney/plugin-sdk/server'
+```
+
+- `RouteContext`, `RegisterRoute`, `RouteMethod`, `Query` and `RunAsPlugin`
+  describe what `register` is handed. `RuleForMatching`,
+  `ConditionForMatching` and `RuleSubject` are the category-rule shapes the
+  host injects.
+- `PluginRouteError(message, statusCode, code, issues?)` refuses a request the
+  person can fix. Throw it, or a subclass, and the API answers with that
+  status and code.
+- `isUuid` is the one id rule: the canonical hyphenated form in either case
+  with an RFC 9562 version (1 to 8) and variant, plus the nil and max UUIDs.
+  It is the rule the API applies to `:id` params, and every id PostgreSQL
+  generates passes.
+
+The subpath has no dependencies (no Zod) and is also re-exported from the
+package root. It is additive: nothing already published moved. Budgets and
+CSV Import, whose packages are private, dropped their own copies, so there is
+nothing for an outside author to migrate. Server-side plugin code is for
+bundled plugins only while third-party install is unsupported.
+
+## Reads are shared between widgets
+
+*Added in 0.5.0.*
+
+`ctx.api.get` doesn't always reach the network. Plugins are separate bundles
+that can't share module state, so the host's scoped client keeps a small
+in-memory record of reads, per user. Identical `GET`s in flight join one
+request, and a resolved one is reused for 5 seconds (50 entries per user,
+least recently used out first). The three dashboard widgets that read the
+same monthly summary make one request, with no plugin changes.
+
+- The key is the signed-in user plus the full URL, so nothing is shared
+  between users, and two plugins allowed to read the same table share the
+  answer.
+- Any write through the client drops that user's whole cache, so a read after
+  a write is fresh. Sign-out and a change of user clear it too.
+- Failures aren't kept: everyone waiting gets the error, and the next call
+  asks again.
+- Each caller gets its own copy of the response, so changing it affects
+  nobody else.
+- To force a fresh read, pass `{ cache: 'no-store' }` (or `'reload'`).
+
+A plugin that was just turned off can still be answered from memory for up
+to five seconds. This is a performance feature only: no API change, and no
+server-side cache.
 
 ## When a plugin is turned off
 

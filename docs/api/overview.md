@@ -213,7 +213,11 @@ The budgets plugin's routes, under `/api/v1/p/wickermoney.budgets`. Amounts
 are decimal strings with at most four decimal places. Since 0.3.0 a fifth
 decimal place is refused with `400 bad_planned` instead of being truncated,
 the same as the rest of the API, and a JSON number is refused rather than
-coerced.
+coerced. Since 0.5.0, an id sent to these routes must be one PostgreSQL
+could have generated (the canonical hyphenated form with a valid version and
+variant); anything else gets the usual `400` instead of reaching the database.
+The same rule applies to the CSV Import routes. Ids from the app are
+unaffected.
 
 | Method and path | What it does |
 |---|---|
@@ -224,6 +228,8 @@ coerced.
 | `GET /at-risk` | The Budget breakdown widget's ranking |
 | `PUT /window` | Create a [budget window](../features/budget-windows), or update one with `id`. Body `{ id?, categoryId, start, through, planned, note? }`; both dates are included. `409 overlaps` when the category already has a line on any of those days |
 | `DELETE /window?id=` | Remove a window |
+| `PUT /account-line` | Create or update an [account allowance](../features/budget-account-allowances). Body `{ month, accountId, planned, rollover?, excludedCategoryIds?, note? }`; `rollover` defaults to true. `400 bad_account` unless the account is a checking account of yours, `400 bad_excluded` for a category that isn't yours |
+| `DELETE /account-line?month=&accountId=` | Remove an account allowance for one month |
 
 ## In the meantime
 

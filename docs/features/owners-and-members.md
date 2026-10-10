@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 9
 description: Who an instance's owner is, what a member can do, and how to check and change roles.
 ---
 
@@ -20,6 +20,32 @@ Every account on an instance is either an **owner** or a **member**.
 The server checks the role on every owner-only request, so a role change takes
 effect on that person's next request, with no sign-out. Two people signing up
 at the same moment on a new instance can't both become the owner.
+
+## Choosing who the owner is
+
+*Added in 0.5.0.*
+
+By default the first account to register is the owner, so on a server other
+people can reach, whoever gets there first owns it. Set
+`BOOTSTRAP_OWNER_EMAIL` to your address before the first start and the owner
+is the account registered with that address (compared without regard to
+case), even if other people registered before it. Everyone else is a member.
+
+- It never creates a second owner. If an owner already exists, the address
+  registers as a member; promote it with the SQL below.
+- It never changes existing accounts.
+- If someone else registers first, they are a member and the instance has no
+  owner until the configured address registers.
+- Email addresses aren't verified, so anyone who knows the address could
+  register it before you do. The setting keeps strangers from claiming a
+  fresh instance by accident; it isn't a login check. Register your own
+  account promptly, then set `REGISTRATION_ENABLED=false`.
+- `REGISTRATION_ENABLED=false` still takes precedence: with registration
+  closed, nobody can register, that address included.
+
+With the setting unset, a production start-up on an empty instance with
+registration open logs a warning. See the
+[Configuration reference](../self-hosting/configuration#auth).
 
 ## Instances from before 0.4.0
 
