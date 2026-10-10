@@ -72,17 +72,35 @@ owner role.
 - **A faster dashboard.** The three dashboard widgets that read the monthly
   summary now make one request. It is a browser-side change only; see
   [Reads are shared between widgets](../contributing/plugin-authoring#reads-are-shared-between-widgets).
+- **Forms open in a dialog.** On Accounts, Categories and Recurring, the add
+  forms are buttons in the page header that open the same dialog Transactions
+  uses (a side drawer on desktop, a full-screen sheet on a phone), so the
+  tables get the full page width. Editing a recurring item, fixing an opening
+  balance and resolving a delete that has history open there too. The
+  Transactions filter row lines up.
+- **Faster recurring matches.** The Transactions page's recurring matches now
+  read their data once per request, 14 database statements instead of 20, the
+  same however many items you have. Same results; nothing is kept between
+  requests.
 - **Plugin trust wording.** The docs, `SECURITY.md` and `.env.example` now
-  say plainly that plugin UI code runs fully trusted in the app's origin.
-  Behaviour is unchanged. Keep `PLUGIN_REMOTE_ORIGINS` empty unless you fully
-  trust every origin you list.
+  say plainly that plugin UI code runs fully trusted in the app's origin, and
+  that the per-plugin database role is a guardrail against honest mistakes in a
+  bundled plugin's server code rather than a sandbox. Behaviour is unchanged.
+  Keep `PLUGIN_REMOTE_ORIGINS` empty unless you fully trust every origin you
+  list.
 - **For API clients:** the Budgets and CSV Import routes refuse an id that
   PostgreSQL could not have generated (a version digit of 0, say) with the
   usual `400`. Ids from the app are unaffected. The Budgets routes gain
   `PUT /account-line` and `DELETE /account-line`, and the Budgets export
   gains `accountLines`.
-- **For plugin authors:** `@wickermoney/plugin-sdk/server` is new and
-  additive; nothing already published moved. See
+- **For plugin authors:** `@wickermoney/plugin-sdk/server` is new, the SDK's
+  entry points now have
+  [stability tiers](../contributing/plugin-authoring#stability-tiers)
+  (`/recurrence` is experimental), and `addDays` and `addMonths` are exported
+  from `/recurrence`. **No export was removed or renamed**, so nothing already
+  published needs changing. The one difference is for anyone who copied the
+  app's old date helpers: an impossible date such as `2026-02-30` now throws
+  instead of rolling into March. See
   [Writing a plugin](../contributing/plugin-authoring#server-contract-wickermoneyplugin-sdkserver).
 
 ### 0.4.1 → 0.4.2
