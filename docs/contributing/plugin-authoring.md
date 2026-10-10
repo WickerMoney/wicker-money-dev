@@ -13,6 +13,51 @@ paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for plugin code from 0.3.0 to 0.5.0.
 
+## Stability tiers
+
+*Added in 0.5.0.*
+
+Every `@wickermoney/plugin-sdk` entry point has a tier, listed in the package
+README and tagged `@stable` or `@experimental` in its module documentation.
+
+| Import | Tier |
+|---|---|
+| `@wickermoney/plugin-sdk` (manifest, dashboard range) | stable |
+| `@wickermoney/plugin-sdk/runtime` | stable |
+| `@wickermoney/plugin-sdk/money` | stable |
+| `@wickermoney/plugin-sdk/server` | stable |
+| `@wickermoney/plugin-sdk/recurrence` | experimental |
+
+- **Stable.** A breaking change (a removed or renamed export, a changed
+  signature, type, return value or error) comes with a `BREAKING CHANGE`
+  commit footer, an entry under **Breaking** in the changelog and a migration
+  note. Additions are not breaking.
+- **Experimental.** May change in any pre-1.0 minor release, including
+  removals and reshaped types. Changes are still recorded in the changelog,
+  but no migration note is promised, so re-check it on each upgrade.
+- An export keeps the tier of the entry point it comes from, however it is
+  imported: `occurrences` is experimental even when imported from the root.
+- Until `SDK_MAJOR_VERSION` is frozen at 1, the whole contract can still move
+  between minor releases. The tiers say how much notice to expect and which
+  parts are settled.
+
+No `./recurrence` export was removed in 0.5.0.
+
+### Calendar helpers: `addDays` and `addMonths`
+
+Also new in 0.5.0, exported from `@wickermoney/plugin-sdk/recurrence` and the
+package root, in place of the copies the app and Budgets each carried:
+
+- `addDays(date, days)` and `addMonths(date, months)` work on `YYYY-MM-DD`
+  strings with no time zone involved, and accept negative values.
+- `addMonths` clamps to the last day of a shorter month, so Aug 31 plus 6
+  months is Feb 28 (Feb 29 in a leap year). Each call clamps on its own, so add
+  the total to the original date rather than stepping a month at a time.
+- Anything that isn't a real calendar date or a whole number throws
+  `RangeError`. An impossible date such as `2026-02-30` no longer rolls over
+  to March 2. If you wrote your own helper with that rollover, check what you
+  pass to the SDK's.
+
 ## Money: `@wickermoney/plugin-sdk/money`
 
 Money is `numeric(19,4)` in the database and a decimal string in TypeScript,
