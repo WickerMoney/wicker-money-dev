@@ -27,6 +27,7 @@ The bundled plugins are:
 |---|---|---|
 | Budgets | `wickermoney.budgets` | The Budgets page, including [budget windows](./budget-windows) and [account allowances](./budget-account-allowances), and the Budget breakdown widget |
 | CSV Import | `wickermoney.import-csv` | The Import page |
+| Debt Payoff | `wickermoney.debt-payoff` | The [Debt payoff](./debt-payoff) page and the Debt-free date dashboard widget |
 | Forecast | `wickermoney.forecast` | The [Forecast](./forecast) page |
 | Insights | `wickermoney.insights` | The Money in and out and Where it went dashboard widgets |
 | Spending Trends | `wickermoney.spending-trends` | The Spending trends dashboard widget |
