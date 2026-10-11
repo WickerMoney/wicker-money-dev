@@ -155,6 +155,35 @@ The rules:
   alone. Each change is logged at `info`.
 - `400` for a bad id or body, `404` for an unknown account.
 
+## Settings: export and erase
+
+| Method and path | Who | What it does |
+|---|---|---|
+| `GET /api/v1/settings/export` | Any signed-in user | Everything the caller owns as one JSON document, `{ exportedAt, core, plugins }`, served as `wickermoney-export-<date>.json`. A consistent snapshot, streamed as it is read. A failure after the first byte aborts the connection and leaves an unparseable file rather than a plausible one. Runs under `DB_LONG_STATEMENT_TIMEOUT` |
+| `POST /api/v1/settings/erase-my-data` | Any signed-in user | Deletes everything the caller owns and ends all their sessions. The account itself stays |
+| `GET /api/v1/settings/erase-instance` | Owner | The facts shown before an instance erase: `databaseName`, `registrationEnabled`, `bootstrapOwnerEmail`, `otherSessions`, `otherUsers` and a `blocker` (or `null`). Changes nothing |
+| `POST /api/v1/settings/erase-instance` | Owner | Deletes every account and everything in every plugin schema, and signs everyone out |
+
+*The erase routes were added in NEXT_VERSION.* What each erase removes, and
+what it keeps, is on [Erasing your data](../features/erasing-data).
+
+Both erase routes take `{ "password", "confirmation" }`, the account password
+again and the typed phrase (`erase my data` or `erase this instance`, compared
+without regard to case or surrounding spaces); the instance erase also takes
+`"acknowledgeActiveSessions": true` to go ahead while other sessions are live.
+Both answer `204` and clear the refresh cookie, so the client is signed out.
+Nothing is deleted unless the response is `204`.
+
+| Status and code | Meaning |
+|---|---|
+| `400 validation_failed` | The phrase is wrong (issue on `confirmation`) or the password is missing |
+| `403 password_incorrect` | The password is wrong. It's a `403`, not a `401`, so a client that treats `401` as an expired session doesn't sign the person out over a typo |
+| `403 owner_required` | A member called an owner-only route |
+| `409 active_sessions` | Other sessions are live and `acknowledgeActiveSessions` wasn't `true` |
+| `409 registration_disabled`, `409 bootstrap_owner_mismatch` | The erased instance could not get a first owner again; see [the blockers](../features/erasing-data#blockers-on-erasing-an-instance) |
+| `429` | Past the per-user attempt limit |
+| `500 erase_unplanned_tables` | Erase my data only: the database holds a table with user data that the erase plan doesn't name. Nothing was deleted. The instance erase reads the tables from the database itself and doesn't have this check |
+
 ## Recurring items
 
 Added in 0.2.0 (the forecast in 0.2.1). See
