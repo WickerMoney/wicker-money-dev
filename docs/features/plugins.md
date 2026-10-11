@@ -53,17 +53,38 @@ A member sees the plugins that are on, read-only.
 
 ## How much a plugin is trusted
 
-*Wording clarified in 0.5.0; behaviour unchanged.*
+*Wording clarified in 0.5.0 and again in NEXT_VERSION; behaviour unchanged.*
 
 A plugin's pages and widgets run inside the app, in its own origin, with the
-same access to your data as you have. The tables a manifest asks for
-(`requiredTables`) are guarded by a per-plugin PostgreSQL role for a plugin's
-server-side code, which only the bundled plugins have; they don't restrict its
-front-end code at all. Even that server-side guard is there to catch honest
-mistakes, not to stop crafted SQL, so it is a guardrail rather than a
-sandbox. That is why installing third-party plugins isn't supported, and why
-`PLUGIN_REMOTE_ORIGINS` should stay empty unless you trust every origin you
-list.
+same access to your data as you have. They are **not sandboxed**:
+
+- A UI plugin can call any `/api/v1/*` route you can, including the data
+  export. The tables a manifest asks for (`requiredTables`) and the
+  `x-wickermoney-plugin` header are developer feedback, not a security boundary
+  for that code: it can leave the header off.
+- What *is* enforced is row-level security on every query, which keeps one
+  person's rows away from another's. And for the server-side code of the bundled
+  plugins, a per-plugin PostgreSQL role limits which tables a query can touch.
+- That role is a **guardrail, not a sandbox**. The plugin query runner refuses
+  statements that change the role or session settings, but it reads SQL text, so
+  a crafted statement (a `DO` block that builds `RESET ROLE` at run time, for
+  instance) can return to the application role and lose the manifest's table
+  limits. Row-level security still holds: such a statement reads no other
+  person's rows. It catches honest mistakes, not hostile code.
+
+That is why installing third-party plugins isn't supported, and why
+`PLUGIN_REMOTE_ORIGINS` should stay empty unless you trust every origin you list:
+a listed origin can run code with the same access as the app itself. Don't run
+plugin code you haven't reviewed. The project's
+[security policy](https://github.com/wickermoney/wicker-money/blob/main/SECURITY.md)
+states the same limits and how it treats a report about them.
+
+**Isolation is in progress, and nothing has switched on yet.** The plugin SDK
+now defines the contract for a UI plugin that runs in a sandboxed frame, and the
+server can issue a short-lived token that speaks for one plugin and is refused
+on almost every route (see [Plugin tokens](../api/overview#plugin-tokens)). But
+the app doesn't host a plugin in a frame or use those tokens, so every UI plugin
+still runs exactly as described above.
 
 ## What isn't here yet
 
