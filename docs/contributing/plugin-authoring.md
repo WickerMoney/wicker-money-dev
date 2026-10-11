@@ -28,6 +28,7 @@ README and tagged `@stable` or `@experimental` in its module documentation.
 | `@wickermoney/plugin-sdk/money` | stable |
 | `@wickermoney/plugin-sdk/server` | stable |
 | `@wickermoney/plugin-sdk/date` | stable |
+| `@wickermoney/plugin-sdk/isolated` | experimental |
 | `@wickermoney/plugin-sdk/recurrence` | experimental |
 
 - **Stable.** A breaking change (a removed or renamed export, a changed
@@ -46,6 +47,38 @@ README and tagged `@stable` or `@experimental` in its module documentation.
   parts are settled.
 
 No `./recurrence` export was removed in 0.5.0 or in NEXT_VERSION.
+
+### The isolated entry point
+
+*Added in NEXT_VERSION. Experimental, and nothing loads it yet.*
+
+`@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
+a sandboxed frame instead of in the app's own page. A `PluginContext` is an
+object of functions and cannot cross a frame boundary, so the entry point
+defines a message protocol (version 1) over a `MessagePort`, validators the
+host runs on every message a frame sends, and an in-frame client,
+`connectToHost`, that rebuilds the same `PluginContext`. A component written
+against `PluginWidgetProps` or `PluginPageProps` runs in either place. The
+manifest gains an optional `isolated` flag that declares a plugin was built for
+this runtime. It is a declaration, not a grant: it can only move a plugin
+towards isolation, and the host decides which runtime a plugin gets.
+
+What this does and doesn't change today:
+
+- **It is additive.** `SDK_MAJOR_VERSION` stays `0`, `/runtime` is unchanged,
+  and no manifest needs editing, so there is nothing to migrate.
+- **The web app does not host a frame yet.** Every UI plugin still runs in the
+  app's origin, fully trusted, exactly as described in
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+  Don't build against this entry point for anything you plan to ship before a
+  release says a host loads it.
+- **It stays experimental** until the isolation work has shipped and settled,
+  so its protocol can change in any minor release.
+- The root does not re-export it: a frame has no use for the Zod manifest code
+  the root carries.
+
+The protocol is described in the
+[SDK README](https://github.com/wickermoney/wicker-money/blob/main/packages/plugin-sdk/README.md#isolated-runtime-experimental).
 
 ### Calendar helpers: `addDays` and `addMonths`
 
