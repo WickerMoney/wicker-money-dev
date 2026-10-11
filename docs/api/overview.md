@@ -90,14 +90,16 @@ reference above will cover:
 | `categories` | Categories, category rules, rule preview |
 | `recurring` | Recurring items, their occurrences, and matching transactions to them (`/api/v1/recurring-items`) |
 | `onboarding` | First-run / starter setup |
-| `settings` | Instance and account settings, data export |
+| `users` | Owner-only account administration: listing accounts and changing a role (`/api/v1/users`) |
+| `settings` | Instance and account settings, data export, and the two erase actions |
 | `plugins` | Plugin registry: the plugins the app loads, and the owner-only list and on/off switch |
 | `core` | Read-only data routes for plugins (`/api/v1/core/...`), each behind a manifest grant |
 
 Bundled plugins with a server half (budgets, import-csv, debt-payoff) register their own
 routes under `/api/v1/p/<pluginId>/`, using the plugin-host mechanism
 described in [Architecture](../contributing/architecture). They aren't core
-API surface; [Budgets](#budgets) below lists the routes that come up most.
+API surface; [Budgets](#budgets), [Debt payoff](#debt-payoff) and
+[Import CSV](#import-csv) below list the routes that come up most.
 While a plugin is turned off, its routes answer `404 plugin_disabled`. The
 other bundled plugins (insights, spending-trends, upcoming, forecast) have no
 server code and read through the `core` routes below.
