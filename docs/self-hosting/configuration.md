@@ -80,6 +80,47 @@ vCPUs. If several people import at once, raise the pool and check
 `analyze` no longer returns every row of the file; see
 [Import](../api/overview#import-csv) in the API reference.
 
+### Running behind PgBouncer
+
+You only need a pooler if you want more API connections than PostgreSQL should
+hold. Nothing in the app depends on a session (the tenant binding and the role
+switch end with the transaction, and the import lock is a transaction-level
+advisory lock), so PgBouncer in **transaction** mode works with one change.
+It was tested with PgBouncer 1.22.0, `default_pool_size = 4` under the API's
+pool of 10, and the full integration suite run through it.
+
+1. **Let the startup parameters through.** The API sends `statement_timeout`
+   and `idle_in_transaction_session_timeout` as connection startup parameters.
+   PgBouncer refuses them (`unsupported startup parameter`) and the API can't
+   connect. Add this to `pgbouncer.ini`:
+
+   ```ini
+   ignore_startup_parameters = statement_timeout,idle_in_transaction_session_timeout
+   ```
+
+2. **Put the two limits on the role instead.** Once ignored, those limits no
+   longer apply through the pooler, whatever `DB_STATEMENT_TIMEOUT` says. Set
+   them on the application role (`wickermoney_app`, or the name in
+   `APP_DB_ROLE`), then reconnect PgBouncer's server connections
+   (`RECONNECT`) so new ones pick them up:
+
+   ```sql
+   ALTER ROLE wickermoney_app SET statement_timeout = '30s';
+   ALTER ROLE wickermoney_app SET idle_in_transaction_session_timeout = '60s';
+   ```
+
+   `DB_LONG_STATEMENT_TIMEOUT` still applies, because it is set inside the
+   transaction; it overrides the role's value for import and export.
+
+With both in place, 1,011 of 1,014 integration tests passed. The three that
+didn't check the pool's own default limit, which is the ignored parameter in
+step 1, not a data problem.
+
+**Not tested:** session or statement pool modes (statement mode can't work,
+because transactions span statements), other PgBouncer versions, other
+poolers, any production load. Run **migrations** against PostgreSQL directly,
+not through a pooler: point `DATABASE_OWNER_URL` at the database itself.
+
 ## Logging
 
 | Variable | Default | Notes |
