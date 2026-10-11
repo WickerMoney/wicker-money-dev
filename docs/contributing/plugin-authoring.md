@@ -208,6 +208,14 @@ import type { RouteContext, RegisterRoute, Query, RunAsPlugin } from '@wickermon
   describe what `register` is handed. `RuleForMatching`,
   `ConditionForMatching` and `RuleSubject` are the category-rule shapes the
   host injects.
+- `RegisterRoute` takes an optional fourth argument. `bodyLimit` raises the
+  request-body limit, in bytes, for that route only. `longRunning: true`
+  (added in NEXT_VERSION) asks the host to run the route's database work under
+  the longer statement limit, `DB_LONG_STATEMENT_TIMEOUT`, instead of
+  `DB_STATEMENT_TIMEOUT` (see
+  [Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit)).
+  Set it only on a route that does bulk work, such as a file import. The host
+  chooses the limit. It is additive: `SDK_MAJOR_VERSION` is unchanged.
 - `PluginRouteError(message, statusCode, code, issues?)` refuses a request the
   person can fix. Throw it, or a subclass, and the API answers with that
   status and code.
