@@ -21,6 +21,12 @@ Every route is under `/api/v1`. The API and web app share one origin (see
 [Architecture](../contributing/architecture)) — there's no separate API host
 to point a client at.
 
+Responses over 1 KiB are compressed (brotli or gzip, per `Accept-Encoding`),
+with `Content-Encoding` and `Vary: Accept-Encoding` set; a client that doesn't
+ask for compression gets the plain body. *Added in NEXT_VERSION.* Behind a
+reverse proxy, don't compress a second time (see
+[Compression: don't compress twice](../self-hosting/configuration#compression-dont-compress-twice)).
+
 ## Authentication
 
 - Access tokens are short-lived (15 minutes by default) and sent by the
