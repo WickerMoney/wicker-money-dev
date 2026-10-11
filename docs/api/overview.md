@@ -130,6 +130,31 @@ A member calling either owner route gets `403 owner_required`. An unknown
 its own routes answer `404 plugin_disabled`, and a core data request carrying
 its `x-wickermoney-plugin` header gets `403 grant_denied`.
 
+## Users and roles
+
+*Added in NEXT_VERSION.* Both routes are owner only; a member gets
+`403 owner_required`. This is what Settings → People calls (see
+[Owners and members](../features/owners-and-members#changing-someones-role)).
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/v1/users` | Every account on the instance, oldest first: `{ users: [{ id, email, role, createdAt }] }`. Nothing else about an account is returned: no password digest, no time zone, none of its data |
+| `PATCH /api/v1/users/:id/role` | Body `{ "role": "owner" \| "member" }`. Returns `{ user, previous: { role }, changed, changedBy: { id, email }, changedAt }`. Idempotent: asking for the role the account already has reports `changed: false` and writes nothing |
+
+The rules:
+
+- Promoting a member makes a second owner. Registration never does that; this
+  route is the only way.
+- Demoting the only owner is refused with `409 last_owner`, whoever asks. An
+  owner may name their own account, and may step down while another owner
+  exists.
+- If two owners demote each other at the same moment, one succeeds and the
+  other gets `403 owner_required` (it was demoted while it waited) or
+  `409 last_owner`.
+- The change applies to that account's next request, and its sessions are left
+  alone. Each change is logged at `info`.
+- `400` for a bad id or body, `404` for an unknown account.
+
 ## Recurring items
 
 Added in 0.2.0 (the forecast in 0.2.1). See
