@@ -96,6 +96,19 @@ While a plugin is turned off, its routes answer `404 plugin_disabled`. The
 other bundled plugins (insights, spending-trends, upcoming, forecast) have no
 server code and read through the `core` routes below.
 
+## Accounts
+
+`GET /api/v1/accounts` lists the signed-in user's accounts by name. Archived
+accounts are left out unless `?includeArchived=true`.
+
+*`fields` added in NEXT_VERSION.* `?fields=basic` returns only `id`, `name`,
+`accountType`, `currencyCode`, `spendable` and `archivedAt`: no balance,
+opening balance or buffer. It also skips the work the full list does to
+compute balances, which sums every transaction of every account, so use it to
+fill a picker (the Transactions page's account filters do). Leave `fields` out,
+or send `fields=full`, for the unchanged full list. Any other value is a
+`400 validation_failed`.
+
 ## Plugins
 
 Added in 0.4.0. See [Plugins](../features/plugins).
@@ -157,17 +170,25 @@ Added in 0.3.0; dismissals and the `transaction-matches` routes in 0.4.0. See
 |---|---|
 | `GET /api/v1/recurring-items/:id/occurrences/:date` | One occurrence and where it stands. `404` if the schedule has no occurrence on that date |
 | `PUT /api/v1/recurring-items/:id/occurrences/:date` | How this occurrence differs from the series: `{ skipped?, expectedDate?, legs? }`, each replacing what was recorded. An empty body puts it back to the series. `expectedDate` is at most 31 days from the nominal date; `legs` (`[{ accountId, amount }]`) must fit the item, and a transfer must still net to zero. `409 occurrence_matched` when skipping one a transaction settles |
-| `GET /api/v1/recurring-items/:id/occurrences/:date/candidates` | For each unsettled leg, the transactions that could settle it, best first. Nothing is linked |
+| `GET /api/v1/recurring-items/:id/occurrences/:date/candidates` | For each unsettled leg, the transactions that could settle it, best first, and `truncated` (see below). Nothing is linked |
 | `POST /api/v1/recurring-items/:id/occurrences/:date/matches` | `{ transactionId }`: the transaction settled one leg (and the other row of a transfer, when it's on the item's other leg). `409` with `already_matched`, `leg_matched` or `occurrence_skipped` |
 | `DELETE /api/v1/recurring-items/:id/occurrences/:date/matches/:transactionId` | Unmatch. The transaction itself is unchanged |
 | `POST /api/v1/recurring-items/:id/occurrences/:date/dismissals` | `{ transactionId }`: never suggest this pair again (a transfer's partner row too). Returns `{ itemId, nominalDate, transactionIds }`. `409 already_matched` if the transaction settles this occurrence |
 | `DELETE /api/v1/recurring-items/:id/occurrences/:date/dismissals/:transactionId` | Undo a dismissal (`204`) |
-| `GET /api/v1/recurring-items/suggestions` | For occurrences from two weeks ago to a few days ahead, the most likely transaction for each unsettled leg, plus the `dismissed` pairs in the same window |
+| `GET /api/v1/recurring-items/suggestions` | For occurrences from two weeks ago to a few days ahead, the most likely transaction for each unsettled leg, plus the `dismissed` pairs in the same window, and `truncated` (see below) |
 | `GET /api/v1/recurring-items/transaction-matches?transactionIds=a,b,…` | For a page of transactions (1–200 ids), in one request: the occurrence each one settles, the occurrence suggested for it, and the occurrences it was dismissed for. Only transactions with something to show are listed |
 | `GET /api/v1/recurring-items/transaction-matches/:transactionId` | The occurrences one transaction could settle, best first, for picking a different one than suggested |
 
 Each candidate carries `dismissed`. Nothing is ever linked without a `POST
 .../matches`.
+
+**`truncated`** *(added in NEXT_VERSION)*. Candidates for matching come from an
+account's newest 500 transactions in the date range that aren't already linked
+to an occurrence. A very busy account could drop the oldest of them with no sign
+that it had. The candidates response now carries `truncated` on each leg, and
+the suggestions response carries a top-level `truncated`; either is `true` when
+a query hit the cap and a match that needs one of the oldest rows may be
+missing. It's additive, and the app doesn't show it yet.
 
 ### For plugins
 
@@ -179,7 +200,7 @@ tables the plugin's manifest declares in `requiredTables`:
 |---|---|---|
 | `/core/recurring-items/list` | `recurring_items` | Active items with their legs and next due date |
 | `/core/recurring-items/occurrences` | `recurring_items` | Occurrences in a range, as above |
-| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences |
+| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences. Since NEXT_VERSION every leg of an occurrence also carries `accountName`, archived accounts included, so a client can name the other side of a transfer without asking for the account list |
 | `/core/recurring-items/forecast?accountId&horizon` | `recurring_items`, `accounts` | The [Forecast](../features/forecast) view for one account |
 
 A `recurring_items` grant also covers `recurring_item_legs`. A missing grant
