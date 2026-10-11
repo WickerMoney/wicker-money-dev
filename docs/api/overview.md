@@ -94,7 +94,7 @@ reference above will cover:
 | `plugins` | Plugin registry: the plugins the app loads, and the owner-only list and on/off switch |
 | `core` | Read-only data routes for plugins (`/api/v1/core/...`), each behind a manifest grant |
 
-Bundled plugins with a server half (budgets, import-csv) register their own
+Bundled plugins with a server half (budgets, import-csv, debt-payoff) register their own
 routes under `/api/v1/p/<pluginId>/`, using the plugin-host mechanism
 described in [Architecture](../contributing/architecture). They aren't core
 API surface; [Budgets](#budgets) below lists the routes that come up most.
@@ -311,6 +311,39 @@ unaffected.
 | `DELETE /window?id=` | Remove a window |
 | `PUT /account-line` | Create or update an [account allowance](../features/budget-account-allowances). Body `{ month, accountId, planned, rollover?, excludedCategoryIds?, note? }`; `rollover` defaults to true. `400 bad_account` unless the account is a checking account of yours, `400 bad_excluded` for a category that isn't yours |
 | `DELETE /account-line?month=&accountId=` | Remove an account allowance for one month |
+
+## Debt payoff
+
+The debt payoff plugin's routes, under `/api/v1/p/wickermoney.debt-payoff`.
+*Added in NEXT_VERSION.* See [Debt payoff](../features/debt-payoff) for what the
+plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
+at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
+24.99%. Unknown fields in a body are refused rather than ignored.
+
+| Method and path | What it does |
+|---|---|
+| `GET /debts` | The person's debts, in their own order. `?includeArchived=true` adds archived ones |
+| `POST /debts` | Create a debt: `{ name, balance, apr, minimumPayment, accountId?, sortOrder?, archived? }` |
+| `GET /debts/:id` | One debt |
+| `PUT /debts/:id` | Change a debt. Send any of the create fields (at least one); a field not sent keeps its value, and `accountId: null` removes the link |
+| `DELETE /debts/:id` | Remove a debt. Answers `{ removed: 1 }` |
+| `GET /settings` | The saved `{ strategy, extraPayment, saved }`. Until the person saves a choice you get `avalanche`, `0` and `saved: false` |
+| `PUT /settings` | `{ strategy?, extraPayment? }`, either or both |
+| `GET /plan?strategy&extra&tz` | The payoff plan. A parameter left out comes from the saved settings, and `tz` (an IANA zone, deciding what today is) defaults to `UTC`. Asking for a different strategy doesn't change the saved one |
+| `GET /account-suggestions` | `{ accounts }`: the person's loan and credit card accounts that aren't archived, each with the `debtId` already tracking it or `null` |
+
+The plan carries the month-by-month `schedule`, each debt's payoff date, the
+`totalInterest` and `totalPaid`, `debtFreeDate` (or `null`), `months`, and the
+comparison with paying only the minimums (`minimumsOnly`, `monthsSaved`,
+`interestSaved`). A plan that doesn't finish within `monthLimit` (600) reports
+`capped: true` with a `cappedReason` and no debt-free date.
+
+Errors: `400` (`validation_failed`, `bad_id`, `bad_body`, `bad_account` for an
+account that isn't one of the person's own loan or credit card accounts),
+`404 not_found` (including a debt that belongs to someone else), and `409`:
+`account_already_linked` (another active debt already tracks that account) or
+`too_many_debts` (at most 50 debts that aren't archived). Each debt is the
+person's own: the table is under row-level security.
 
 ## Import CSV
 
