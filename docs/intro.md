@@ -31,8 +31,8 @@ for what's shipped versus planned.
   with Docker.
 - **[Features](/docs/features/recurring-items)** — recurring items and
   matching them to what landed, the "Until payday" widget, the balance
-  forecast, budget windows and account allowances, turning plugins on and
-  off, and owners and members.
+  forecast, budget windows and account allowances, a debt payoff plan, turning
+  plugins on and off, owners and members, and erasing your data.
 - **[Contributing](/docs/contributing/dev-environment)** — set up a dev
   environment and understand how the codebase is laid out.
 - **[API reference](/docs/api/overview)** — endpoint reference (in progress).
