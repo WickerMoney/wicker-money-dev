@@ -26,6 +26,59 @@ without them.
 | `DATABASE_OWNER_URL` | *required* | Same database, connected as the owner. Only used for migrations (creating schemas, policies, `SECURITY DEFINER` functions) — never for reading application data, and never a "migrate from" source. |
 | `APP_DB_PASSWORD` | *required* | Migrations create `wickermoney_app` as `NOLOGIN` with no password (a migration file is the wrong place for a secret) and grant `LOGIN` using this value. Must match the password in `DATABASE_URL`. A placeholder such as `CHANGE_ME` is refused in production (see [Placeholder credentials](./upgrading#placeholder-credentials)). |
 | `APP_DB_ROLE` | `wickermoney_app` | Override only when several environments share one PostgreSQL *server* — roles are cluster-wide, so two environments reusing a role name means whichever migrated last owns the password. |
+| `DB_POOL_MAX` | `10` | *NEXT_VERSION and later.* Connections the API may hold open to PostgreSQL, 2 to 200. See [Pool, statement timeouts and the import limit](#pool-statement-timeouts-and-the-import-limit). |
+| `DB_STATEMENT_TIMEOUT` | `30000` | *NEXT_VERSION and later.* Longest one SQL statement may run, in **milliseconds** (1000 to 3600000). |
+| `DB_LONG_STATEMENT_TIMEOUT` | `300000` | *NEXT_VERSION and later.* The same limit, in milliseconds, for CSV import and the data export. Not lower than `DB_STATEMENT_TIMEOUT`. |
+| `IMPORT_MAX_ROWS` | `100000` | *NEXT_VERSION and later.* The most data rows one CSV import may contain, 1 to 1000000. |
+
+## Pool, statement timeouts and the import limit
+
+*Added in NEXT_VERSION.* Four settings bound how much database work one API
+process does. Each is read at start-up and checked: a value outside its range
+stops the API with a configuration error that names the variable, rather than
+being clamped.
+
+| Setting | Default | Range | What it does |
+|---|---|---|---|
+| `DB_POOL_MAX` | `10` | 2 to 200 | Connections the API may hold open. Every request holds one for the length of its transaction, so this caps concurrent database work in one API process. PostgreSQL's `max_connections` must cover it for every API process you run, plus migrations and your own tools. |
+| `DB_STATEMENT_TIMEOUT` | `30000` | 1000 to 3600000 | Longest one SQL statement may run, in **milliseconds**. A statement over the limit is cancelled and the request fails with the generic error; the cause is in the log. The floor of 1000 is deliberate: `30`, meant as seconds, is refused rather than cancelling nearly every query. |
+| `DB_LONG_STATEMENT_TIMEOUT` | `300000` | 1000 to 3600000 | The same limit for the routes that legitimately run longer: CSV import (including waiting its turn behind another import into the same account) and the data export. It is set inside those routes' transactions, so it ends with them; every other route keeps `DB_STATEMENT_TIMEOUT`. It must not be lower than `DB_STATEMENT_TIMEOUT`. |
+| `IMPORT_MAX_ROWS` | `100000` | 1 to 1000000 | The most data rows one CSV import may contain, counting rows that can't be read. A larger file is refused with `400 too_many_rows` and a message that names the limit, before anything is written. |
+
+The 8 MB limit on the CSV file itself applies as well and isn't configurable.
+Before this release the row cap was a fixed 50,000.
+
+### Why the import cap is 100,000 rows
+
+An 8 MB file holds about 109,000 rows of a typical bank export, 67,000 with a
+memo column, or 374,000 rows of minimal text, so the file size alone doesn't
+bound the work. An import is parsed in the API process and holds one database
+connection for its whole commit. The maintainer measured this on 2 vCPUs with a
+local PostgreSQL 16, a pool of 10 and synthetic rows:
+
+| Rows | Analyze | Commit | Extra API memory (analyze / commit) |
+|---|---|---|---|
+| 50,000 | 0.5 s | 7 to 9 s | +92 / +107 MB |
+| 100,000 | 1.0 s | about 17 s | +190 / +110 MB |
+| 373,585 (an 8 MB file of minimal rows) | 2.1 s | about 48 s | +194 / +317 MB |
+
+Commit time is linear in the row count, about 150 microseconds a row, mostly
+PostgreSQL. These are one machine's numbers, not a benchmark; the shape is the
+useful part. 100,000 rows keeps a commit near 15 to 18 seconds there, which
+leaves a slower host room under a reverse proxy that cuts requests off at 60
+seconds (the nginx default). On a small device, or behind a proxy with a
+short timeout, lower `IMPORT_MAX_ROWS`; raise it only if you also raise the
+proxy's timeout.
+
+**Concurrent imports share the pool.** Ten people committing 50,000 rows at
+the same moment held all ten connections for about 45 seconds, and 8 of 106
+other requests made in that time failed waiting for a connection. With
+`DB_POOL_MAX=20` none did, at the cost of slower individual imports on two
+vCPUs. If several people import at once, raise the pool and check
+`max_connections`.
+
+`analyze` no longer returns every row of the file; see
+[Import](../api/overview#import-csv) in the API reference.
 
 ## Logging
 
