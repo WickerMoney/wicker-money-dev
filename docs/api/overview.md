@@ -258,6 +258,51 @@ unaffected.
 | `PUT /account-line` | Create or update an [account allowance](../features/budget-account-allowances). Body `{ month, accountId, planned, rollover?, excludedCategoryIds?, note? }`; `rollover` defaults to true. `400 bad_account` unless the account is a checking account of yours, `400 bad_excluded` for a category that isn't yours |
 | `DELETE /account-line?month=&accountId=` | Remove an account allowance for one month |
 
+## Import CSV
+
+The CSV import plugin's routes, under `/api/v1/p/wickermoney.import-csv`.
+A request carries the account, the column mapping and the CSV text. The CSV
+can be at most 8,000,000 bytes (`400` above that), and a file with more data
+rows than `IMPORT_MAX_ROWS` (default 100,000, counting rows that can't be
+read) is refused with `400 too_many_rows` before anything is written. See
+[Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit).
+Both routes run under the longer `DB_LONG_STATEMENT_TIMEOUT`.
+
+| Method and path | What it does |
+|---|---|
+| `POST /analyze` | Reads and classifies a file without writing anything |
+| `POST /commit` | Writes the import as one batch. Rows classified `new` are imported, `needs-review` rows only when their row number is in `acceptRowNumbers`, duplicates never. An optional `idempotencyKey` (1 to 128 characters) makes a repeat return the first outcome with `replayed: true` |
+| `GET /batches` | The 25 most recent batches |
+| `POST /batches/:id/revert` | Undo one import |
+
+### The `analyze` response
+
+:::caution[Changed in NEXT_VERSION: `analyze` no longer returns every row]
+Before NEXT_VERSION, `analyze` answered with the verdict for every row of the
+file, which for an 8 MB file was a 21 MB response. A client that read every row
+from it, rather than showing the counts and the rows to review, now sees only
+the first page. Read `flagged` for the rows that need a decision, and use
+`summary` for the counts. `commit` classifies the file itself, so rows you were
+never shown are still handled exactly as the person decided.
+:::
+
+`analyze` responds `200` with `{ summary, errors, rows, flagged }`:
+
+- `summary`: counts for the whole file: `total`, `new`, `duplicate`,
+  `needsReview` and `errors`.
+- `errors`: at most 50 row errors. `summary.errors` has the full count.
+- `rows`: the first 100 rows of the file with their verdicts, in file order. It
+  is a preview, not every row.
+- `flagged`: `{ total, offset, rows }`, a page of the rows with status
+  `needs-review`, in file order. `total` is every flagged row in the file
+  (equal to `summary.needsReview`).
+
+To read another page of flagged rows, send the same request with
+`flaggedOffset` (a whole number from 0, default 0) and `flaggedLimit` (a whole
+number from 1, default 500, **lowered to 1000** if larger). Each such request
+sends the file again and analyses it again. A value that isn't a whole number
+is a `400`.
+
 ## In the meantime
 
 Reading the Zod schemas next to each route handler
