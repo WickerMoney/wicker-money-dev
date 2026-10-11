@@ -158,3 +158,21 @@ Wicker Money is one process on one port by design — the API serves the built
 web app and the plugin remotes itself, so a reverse proxy is optional, not
 required. If you do put one in front (for TLS termination, a shared ingress,
 etc.), set `TRUST_PROXY=true` and forward `X-Forwarded-For`.
+
+### Compression: don't compress twice
+
+*Added in NEXT_VERSION.*
+
+The API compresses its own responses, because the image serves the web bundle
+and the API from one process with no proxy guaranteed in front. It uses brotli
+(quality 5) or gzip, whichever the client accepts, for responses over 1 KiB,
+and skips types that are already dense, such as images and fonts. A compressed
+response carries `Content-Encoding` and `Vary: Accept-Encoding`; nothing else
+about it changes. On the seeded demo data, a 200-row transactions page went
+from 103 kB to 8.7 kB with brotli (9.6 kB with gzip).
+
+**Behind a reverse proxy, do not compress twice.** Leave compression off for
+this upstream, or make sure your proxy passes a response that already has a
+`Content-Encoding` header through untouched. Compressing an already-compressed
+body costs CPU for nothing. There is no setting in this release to turn the app's own
+compression off, so the proxy is where to configure it.
