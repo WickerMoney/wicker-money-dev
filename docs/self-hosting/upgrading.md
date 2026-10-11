@@ -48,6 +48,90 @@ owner role.
 
 ## Version notes
 
+### 0.5.0 → NEXT_VERSION \{#from-0-5-0}
+
+- **Back up first.** Four migrations, **029 to 032**, all with a `down`. The
+  sample compose file's `migrate` service runs them before the app starts. Run
+  migrations (not just a restart) either way: `migrate` also creates the
+  database role the new Debt payoff plugin runs under.
+  - **029** adds two functions, `core.list_users_for_owner()` and
+    `core.set_user_role(uuid, core.user_role)`, behind
+    [Settings → People](../features/owners-and-members#changing-someones-role).
+    No data changes. Its `down` drops both functions and leaves every account's
+    role as it is.
+  - **030** creates the Debt payoff plugin's schema, `plugin_debt_payoff`, with
+    two empty tables (`debts` and `plan_settings`). Its `down` **drops the
+    schema and everything in it**: every person's debts and plan settings. If
+    anyone has used Debt payoff, that is data loss, so restore from your backup
+    rather than going back if you want those debts.
+  - **031** adds two indexes to `core.transactions`, `(user_id, merchant, id)` and
+    `(user_id, amount, id)`, so sorting the transaction list by merchant or
+    amount no longer sorts the person's whole ledger on every page. **The index
+    build blocks writes to transactions (reads continue) while each one builds,
+    one index at a time.** On a test ledger of 1,000,000 transactions each build
+    took about 1.2 seconds and writes were held up for at most about 2.2 seconds;
+    a much larger or slower database takes proportionally longer. Don't run it
+    in the middle of a CSV import. Its `down` drops the two indexes.
+  - **032** adds `core.erase_instance()` and `core.instance_activity(uuid)`, the
+    functions behind "erase this entire instance". They refuse anyone who isn't
+    an owner right now, and no data changes when they are added. Its `down`
+    drops both functions; an instance that has been erased stays erased.
+- **Going back to 0.5.0:** run `node dist/db/cli.js down` four times with the new
+  image, then start the 0.5.0 image. That removes the owner-role functions, the
+  Debt payoff tables **and their data**, the two indexes and the erase
+  functions.
+- **Debt payoff is on after the upgrade.** Bundled plugins are registered
+  switched on, so the page and the Debt-free date dashboard widget appear for
+  everyone. An owner can turn it off from Settings → Plugins; its data is kept
+  while it's off. See [Debt payoff](../features/debt-payoff).
+- **Owners can change roles from Settings → People**, and the bottom of Settings
+  has [two erase actions](../features/erasing-data). Nothing happens until
+  someone uses them.
+- **New settings, all optional:** `DB_POOL_MAX`, `DB_STATEMENT_TIMEOUT`,
+  `DB_LONG_STATEMENT_TIMEOUT` and `IMPORT_MAX_ROWS`. The defaults keep today's
+  behaviour, with one exception: **the CSV import row cap rises from 50,000 to
+  100,000 rows** (the 8 MB file limit is unchanged). A value outside its range
+  stops the API at start-up with a message naming the variable. See
+  [Pool, statement timeouts and the import limit](./configuration#pool-statement-timeouts-and-the-import-limit).
+  If you run through PgBouncer, read
+  [the PgBouncer note](./configuration#running-behind-pgbouncer) first: it needs
+  one setting changed and two limits moved onto the role.
+- **Compression.** The API now compresses its responses itself. If a reverse
+  proxy sits in front, make sure it doesn't compress a second time; see
+  [Compression: don't compress twice](./configuration#compression-dont-compress-twice).
+  There is no setting yet to turn the app's compression off.
+- **Faster, and a little more accessible.** The core pages load when you first
+  visit them, the Transactions page does less work, Budgets reads the ledger at
+  most three times per month request, recurring matches read less, and the
+  dashboard's Upcoming widget makes one request instead of two. Dialogs and the
+  phone drawer manage keyboard focus, charts can be shown as a table, tables
+  have proper headers, and the light-mode green is a shade darker. The
+  accessibility changes haven't been checked with a screen reader yet.
+- **The `:next` image tag is gone.** A release candidate is published under its
+  version tag only; see [Release tags](./release-tags#release-candidates).
+- **For API clients:**
+  - **Breaking: `POST /analyze` on the CSV import no longer returns every row.**
+    It returns the counts for the whole file, the first 100 rows and a page of
+    up to 500 rows that need review. A client that read every row from the
+    response needs to read `flagged` (and page it) instead; `commit` is
+    unchanged. See [The `analyze` response](../api/overview#the-analyze-response).
+  - Additive: `GET /accounts?fields=basic`, `accountName` on the legs of the
+    upcoming outlook, `truncated` flags on recurring matching, and the new
+    owner-only `/users`, erase and plugin-token routes.
+- **For plugin authors:** one **breaking** change to the stable SDK root. The
+  five Zod manifest schemas (`pluginManifestSchema` and friends) are no longer
+  exported; validate with `parseManifest`. `addDays` and `addMonths` have a
+  stable home at `@wickermoney/plugin-sdk/date`; `RegisterRoute` has a
+  `longRunning` option; and `@wickermoney/plugin-sdk/isolated` is a new
+  experimental entry point that nothing loads yet. Manifests and
+  `SDK_MAJOR_VERSION` are unchanged, so existing manifests still load. See
+  [Writing a plugin](../contributing/plugin-authoring#validating-a-manifest).
+- **Plugin trust wording.** The docs now say in one place what is and isn't
+  enforced against plugin code (see
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted)).
+  Behaviour is unchanged: UI plugins still run fully trusted in the app's
+  origin, and `PLUGIN_REMOTE_ORIGINS` should stay empty.
+
 ### 0.4.2 → 0.5.0
 
 - **Back up first.** Two migrations, both reversible:
