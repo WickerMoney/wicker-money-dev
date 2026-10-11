@@ -126,11 +126,34 @@ Added in 0.4.0. See [Plugins](../features/plugins).
 | `GET /api/v1/plugins` | Any signed-in user | The enabled plugins' manifests, each with a `bundled` flag, and `failures` for plugins that are on but didn't load. This is what the web app loads |
 | `GET /api/v1/plugins/registry` | Owner | Every registered plugin, on or off: `id`, `name`, `description`, `author`, `version`, `bundled`, `enabled`, `status` (`enabled`, `disabled` or `failed`), `failure` (why it can't load, reported even while it's off, or `null`) and `contributes` (the titles of the pages and widgets it adds) |
 | `PATCH /api/v1/plugins/:pluginId` | Owner | Body `{ "enabled": boolean }`. Idempotent. Returns `{ plugin, previous: { enabled }, changed, changedBy: { id, email }, changedAt }`, and logs each change at `info` |
+| `POST /api/v1/plugins/:pluginId/token` | Signed-in user (their own access token) | *Added in NEXT_VERSION.* Mints a five-minute token that speaks for one plugin, for the app to hold on a sandboxed plugin's behalf. Returns `{ token, expiresAt, pluginId, grants }`. `404 not_found` for an id nobody registered, `404 plugin_disabled` for a plugin that is off or whose manifest doesn't load. A plugin token can't mint another |
 
 A member calling either owner route gets `403 owner_required`. An unknown
 `pluginId` is a `404`. Turning a plugin off deletes nothing. While it's off,
 its own routes answer `404 plugin_disabled`, and a core data request carrying
 its `x-wickermoney-plugin` header gets `403 grant_denied`.
+
+### Plugin tokens
+
+*Added in NEXT_VERSION, server side only.* A plugin token carries the user
+(`sub`), the session it was minted under, the plugin id and the tables the
+plugin's manifest grants, with its own audience so it never verifies as an
+ordinary access token. It lives five minutes, and one older than fifteen is
+refused whatever it says. Logging out or changing the password ends it with
+the session. A plugin token can reach only:
+
+- the `GET /api/v1/core/*` reads its plugin was granted, and
+- the plugin's own routes under `/api/v1/p/<its id>/`.
+
+Everything else answers `403 plugin_route_denied` before its handler runs:
+sign-in and refresh, `/settings/*` including the export, `/plugins/*`,
+`/users/*`, the app's own accounts, categories, transactions and recurring
+routes, and other plugins' routes. A plugin token has no owner powers, even
+when the user is an owner. A route nobody classified is denied.
+
+**Nothing in the web app mints or sends a plugin token yet**, so this does not
+change what a UI plugin running in the app's page can reach; see
+[How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
 
 ## Users and roles
 
