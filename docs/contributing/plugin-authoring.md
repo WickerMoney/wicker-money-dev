@@ -50,7 +50,8 @@ No `./recurrence` export was removed in 0.5.0 or in NEXT_VERSION.
 
 ### The isolated entry point
 
-*Added in NEXT_VERSION. Experimental, and nothing loads it yet.*
+*Added in NEXT_VERSION. Experimental. The web app hosts it, and Insights and
+Spending Trends run on it.*
 
 `@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
 a sandboxed frame instead of in the app's own page. A `PluginContext` is an
@@ -63,22 +64,56 @@ manifest gains an optional `isolated` flag that declares a plugin was built for
 this runtime. It is a declaration, not a grant: it can only move a plugin
 towards isolation, and the host decides which runtime a plugin gets.
 
-What this does and doesn't change today:
+What this does and doesn't change:
 
 - **It is additive.** `SDK_MAJOR_VERSION` stays `0`, `/runtime` is unchanged,
   and no manifest needs editing, so there is nothing to migrate.
-- **The web app does not host a frame yet.** Every UI plugin still runs in the
-  app's origin, fully trusted, exactly as described in
-  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
-  Don't build against this entry point for anything you plan to ship before a
-  release says a host loads it.
-- **It stays experimental** until the isolation work has shipped and settled,
-  so its protocol can change in any minor release.
+- **The host decides where a plugin runs.** A bundled plugin on a short
+  host-internal list runs in the app's own page; every other plugin, and any
+  plugin whose manifest says `isolated: true`, runs in a sandboxed frame.
+  `GET /api/v1/plugins` reports the `runtime` of each. A plugin in a frame
+  reaches data only through the host's broker, with a token that carries just
+  its manifest's grants. See
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted)
+  for what the sandbox does not stop.
+- **A frame costs time and memory.** Roughly 6 to 9 MiB and 150 ms for each
+  frame after the first, and the first starts its own renderer process, so
+  keep a plugin's widgets few and its bundle small. Don't import the SDK root
+  in frame code: it carries the Zod manifest schemas (about 85 kB). Import
+  from `/runtime`, `/money` and `/date`.
+- **Keep overlays inside the frame.** The protocol has no host-drawn overlay or
+  dialog, and a frame can't draw outside its own rectangle, so tooltips and
+  menus must fit inside it. The host owns the frame's width and clamps the
+  height you report (widgets at most 800 px).
+- **A widget below the fold may keep its minimum height until it scrolls into
+  view**, because Chromium does not run an off-screen cross-origin frame's
+  layout observers.
+- **It stays experimental** until the isolation work has settled, so its
+  protocol can change in any minor release.
 - The root does not re-export it: a frame has no use for the Zod manifest code
   the root carries.
 
 The protocol is described in the
 [SDK README](https://github.com/wickermoney/wicker-money/blob/main/packages/plugin-sdk/README.md#isolated-runtime-experimental).
+
+### Integrity pin and refused permissions
+
+*Added in NEXT_VERSION.*
+
+A manifest can carry an optional `integrity` map of Subresource Integrity values
+(for example `sha384-...`), keyed by file path relative to the plugin's directory. A plugin
+that isn't bundled, or whose entry the host doesn't serve itself, must have one
+that lists its entry file. The frame has the browser verify every listed file
+before the plugin runs, and a changed file is refused with a reason. It covers
+only the files it lists, not stylesheets. The SDK exports `parseIntegrity` and
+`checkRemoteEntryIntegrity`. `integrity` is optional and additive, so existing
+manifests are unaffected.
+
+A manifest that declares `network:outbound`, `schedule:daily` or `notify` is now
+**refused at load**, with the reason on the plugin list. The host implements
+none of them; before this they loaded and were ignored. A non-bundled manifest
+also gets no `contributes.endpoints` or `contributes.exporters`: it is refused,
+because a third-party plugin has no server-side code, storage or scheduled work.
 
 ### Calendar helpers: `addDays` and `addMonths`
 
@@ -228,7 +263,8 @@ The subpath has no dependencies (no Zod) and is also re-exported from the
 package root. It is additive: nothing already published moved. Budgets and
 CSV Import, whose packages are private, dropped their own copies, so there is
 nothing for an outside author to migrate. Server-side plugin code is for
-bundled plugins only while third-party install is unsupported.
+bundled plugins only: it runs in the API process, and a third-party plugin is
+refused it.
 
 ## Reads are shared between widgets
 
