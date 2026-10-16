@@ -53,43 +53,95 @@ A member sees the plugins that are on, read-only.
 
 ## How much a plugin is trusted
 
-*Wording clarified in 0.5.0 and again in NEXT_VERSION; behaviour unchanged.*
+*Rewritten in NEXT_VERSION, which adds the sandboxed runtime. The sandbox is new
+code, and its broker and token path have not been through an independent
+security review.*
 
-A plugin's pages and widgets run inside the app, in its own origin, with the
-same access to your data as you have. They are **not sandboxed**:
+Where a plugin's pages and widgets run depends on the plugin:
 
-- A UI plugin can call any `/api/v1/*` route you can, including the data
-  export. The tables a manifest asks for (`requiredTables`) and the
-  `x-wickermoney-plugin` header are developer feedback, not a security boundary
-  for that code: it can leave the header off.
-- What *is* enforced is row-level security on every query, which keeps one
-  person's rows away from another's. And for the server-side code of the bundled
-  plugins, a per-plugin PostgreSQL role limits which tables a query can touch.
-- That role is a **guardrail, not a sandbox**. The plugin query runner refuses
-  statements that change the role or session settings, but it reads SQL text, so
-  a crafted statement (a `DO` block that builds `RESET ROLE` at run time, for
-  instance) can return to the application role and lose the manifest's table
-  limits. Row-level security still holds: such a statement reads no other
-  person's rows. It catches honest mistakes, not hostile code.
+| Plugin | Where its UI runs | Trust |
+| --- | --- | --- |
+| Insights, Spending Trends | A sandboxed frame | Confined to its grants (below) |
+| Budgets, Import CSV, Upcoming, Forecast, Debt payoff | **The app's own page** | **Fully trusted, not sandboxed** |
+| A third-party plugin an operator has added | A sandboxed frame, always | Confined to its grants (below) |
 
-That is why installing third-party plugins isn't supported, and why
-`PLUGIN_REMOTE_ORIGINS` should stay empty unless you trust every origin you list:
-a listed origin can run code with the same access as the app itself. Don't run
-plugin code you haven't reviewed. The project's
-[security policy](https://github.com/wickermoney/wicker-money/blob/main/SECURITY.md)
-states the same limits and how it treats a report about them.
+**The five bundled plugins in the app's own page** share the page, its memory
+and your session with the app. They can call any `/api/v1/*` route you can. The
+tables a manifest asks for (`requiredTables`) and the `x-wickermoney-plugin`
+header are developer feedback, not a security boundary for that code. They ship
+in the image and are reviewed with the rest of the application.
 
-**Isolation is in progress, and nothing has switched on yet.** The plugin SDK
-now defines the contract for a UI plugin that runs in a sandboxed frame, and the
-server can issue a short-lived token that speaks for one plugin and is refused
-on almost every route (see [Plugin tokens](../api/overview#plugin-tokens)). But
-the app doesn't host a plugin in a frame or use those tokens, so every UI plugin
-still runs exactly as described above.
+**A plugin in a sandboxed frame** runs in an `<iframe sandbox="allow-scripts">`
+whose document has its own content security policy. It has no access to the
+app's cookies, storage or page, and script in the frame cannot make network
+requests of its own (`fetch`, XHR, WebSocket and beacons are blocked). Its only
+way to your data is a message channel to the app, which checks each request
+against the plugin's grants and forwards it with a plugin-specific token that
+lasts five minutes. The server gives that token a few read-only aggregate
+routes for the tables the manifest lists, plus the plugin's own routes, and
+refuses everything else, including sign-in, the data export, the erase actions,
+plugin management and other plugins' routes. A hostile-plugin test suite
+attempts about 140 escapes, in Chromium, on every pull request.
+
+**What the sandbox does not stop** (observed in Chromium 141; WebKitGTK 2.52
+was checked for the last item only; Firefox and Safari have not been tested):
+
+- `<link rel=prerender>` and WebRTC (STUN and TURN) are not governed by the
+  frame's content security policy. A hostile plugin can use them to reach an
+  address it chooses and carry what it holds in the URL or the TURN username.
+- A sandboxed frame can navigate itself to a URL on the app's own origin that
+  the page's frame policy allows. In Chromium 141 that request carried none of
+  your credentials and returned nothing to the plugin. In WebKitGTK 2.52 the same
+  navigation carried a `SameSite=Strict` cookie. Don't assume either result for
+  another browser.
+
+A malicious plugin can therefore cause some requests and read nothing back, and
+**a plugin granted your transactions can send them to another server through
+these gaps.** They are known limitations, documented in the project's
+[security policy](https://github.com/wickermoney/wicker-money/blob/main/SECURITY.md).
+
+**Server-side plugin code stays first-party.** A plugin's own endpoints,
+scheduled work and exporters run in the API process and are refused for any
+plugin not in the image. For the bundled plugins, a per-plugin PostgreSQL role
+limits which tables a query can touch. That role is a **guardrail, not a
+sandbox**: the plugin query runner reads SQL text, so a crafted statement (a
+`DO` block that builds `RESET ROLE` at run time, for instance) can return to the
+application role and lose the manifest's table limits. Row-level security still
+holds: such a statement reads no other person's rows. It catches honest
+mistakes, not hostile code.
+
+### Adding a third-party plugin (experimental)
+
+There is no install flow, catalog or signing. The isolated runtime and loading
+a third-party plugin are opt-in and off by default. The only way to add one is
+for the operator to do it by hand:
+
+1. Put the plugin's build on an https origin and list that origin in
+   `PLUGIN_REMOTE_ORIGINS` (empty by default; with it empty, nothing changes).
+2. Copy its manifest, with an `integrity` map of Subresource Integrity values
+   for every file of the build, into the directory named by
+   `PLUGIN_MANIFEST_DIR`, and restart the API.
+3. Switch the plugin on as an owner in Settings → Plugins. It starts off.
+
+A third-party plugin gets no server-side code, no storage and no scheduled work,
+and can read only the read-only aggregates for the tables its manifest lists.
+The pin makes the browser refuse a file whose bytes differ from the ones you
+pinned; it covers only the files it lists, not stylesheets, and is only as good
+as where you took the hashes from (take them from the build you reviewed, not
+from the server that will serve it). It does not tell you the code is safe.
+Treat a third-party plugin as code you chose to run inside a cage that has known
+gaps. If you wouldn't give it the aggregates it asks for, don't add it. A
+manifest that declares `endpoints` or `exporters`, a permission the host doesn't
+implement (`network:outbound`, `schedule:daily`, `notify`), an origin that isn't
+in `PLUGIN_REMOTE_ORIGINS`, or no pin is refused, and the reason is listed with
+the plugin.
 
 ## What isn't here yet
 
-- Installing a plugin that isn't bundled. Third-party plugins need isolation
-  that doesn't exist yet; today all plugin code runs fully trusted, in the app's own origin. See the
+- An install flow, a catalog or signing for third-party plugins. Today an
+  operator adds one by hand (see above), and an independent security review
+  comes first. Moving the five remaining bundled plugins into frames is also not
+  done. See the
   [roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
 - Per-account choices. A plugin is on or off for the whole instance.
 
