@@ -135,7 +135,7 @@ its `x-wickermoney-plugin` header gets `403 grant_denied`.
 
 ### Plugin tokens
 
-*Added in NEXT_VERSION, server side only.* A plugin token carries the user
+*Added in NEXT_VERSION.* The web app holds a plugin token for each plugin that runs in a sandboxed frame; plugins in the app's own page don't use one. A plugin token carries the user
 (`sub`), the session it was minted under, the plugin id and the tables the
 plugin's manifest grants, with its own audience so it never verifies as an
 ordinary access token. It lives five minutes, and one older than fifteen is
@@ -184,7 +184,8 @@ The rules:
 
 | Method and path | Who | What it does |
 |---|---|---|
-| `GET /api/v1/settings/export` | Any signed-in user | Everything the caller owns as one JSON document, `{ exportedAt, core, plugins }`, served as `wickermoney-export-<date>.json`. A consistent snapshot, streamed as it is read. A failure after the first byte aborts the connection and leaves an unparseable file rather than a plausible one. Runs under `DB_LONG_STATEMENT_TIMEOUT` |
+| `POST /api/v1/settings/export-ticket` | Any signed-in user | *Added in NEXT_VERSION.* Body `{ "password": "..." }`. Checks the account password again and returns `{ ticket, expiresAt }`. The ticket works for one download, for two minutes, for that user in that session. A wrong password is `403 password_incorrect` (not `401`, so a client doesn't read it as an expired session), counted against the same attempt limit as the erase routes (`429` past it). Refused for a plugin token |
+| `GET /api/v1/settings/export` | Any signed-in user, **with a ticket** | Everything the caller owns as one JSON document, `{ exportedAt, core, plugins }`, served as `wickermoney-export-<date>.json`. Send the ticket in the `x-wickermoney-export-ticket` header. Without one it is `403 export_confirmation_required`; with an unknown, expired, used or someone else's, `403 export_ticket_invalid`. A consistent snapshot, streamed as it is read. A failure after the first byte aborts the connection and leaves an unparseable file rather than a plausible one. Runs under `DB_LONG_STATEMENT_TIMEOUT` |
 | `POST /api/v1/settings/erase-my-data` | Any signed-in user | Deletes everything the caller owns and ends all their sessions. The account itself stays |
 | `GET /api/v1/settings/erase-instance` | Owner | The facts shown before an instance erase: `databaseName`, `registrationEnabled`, `bootstrapOwnerEmail`, `otherSessions`, `otherUsers` and a `blocker` (or `null`). Changes nothing |
 | `POST /api/v1/settings/erase-instance` | Owner | Deletes every account and everything in every plugin schema, and signs everyone out |
