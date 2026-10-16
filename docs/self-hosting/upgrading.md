@@ -110,6 +110,13 @@ owner role.
 - **The `:next` image tag is gone.** A release candidate is published under its
   version tag only; see [Release tags](./release-tags#release-candidates).
 - **For API clients:**
+  - **Breaking: the data export needs a password-confirmed ticket.**
+    `GET /settings/export` answers `403 export_confirmation_required` without an
+    `x-wickermoney-export-ticket` header. Get a ticket from the new
+    `POST /settings/export-ticket` with `{ "password": "..." }`; it is good for
+    one download for two minutes. The Settings page does both steps with a
+    password dialog. A script that downloads the export itself must make the two
+    requests in order. See [The data export](../api/overview#settings-export-and-erase).
   - **Breaking: `POST /analyze` on the CSV import no longer returns every row.**
     It returns the counts for the whole file, the first 100 rows and a page of
     up to 500 rows that need review. A client that read every row from the
@@ -123,14 +130,29 @@ owner role.
   exported; validate with `parseManifest`. `addDays` and `addMonths` have a
   stable home at `@wickermoney/plugin-sdk/date`; `RegisterRoute` has a
   `longRunning` option; and `@wickermoney/plugin-sdk/isolated` is a new
-  experimental entry point that nothing loads yet. Manifests and
-  `SDK_MAJOR_VERSION` are unchanged, so existing manifests still load. See
+  experimental entry point that the app now hosts (Insights and Spending Trends
+  use it). A manifest gains an optional `integrity` pin and an optional
+  `isolated` flag. A manifest that declares `network:outbound`,
+  `schedule:daily` or `notify` is now refused at load; before, it loaded and was
+  ignored. `SDK_MAJOR_VERSION` is unchanged and existing manifests still load. See
   [Writing a plugin](../contributing/plugin-authoring#validating-a-manifest).
-- **Plugin trust wording.** The docs now say in one place what is and isn't
-  enforced against plugin code (see
-  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted)).
-  Behaviour is unchanged: UI plugins still run fully trusted in the app's
-  origin, and `PLUGIN_REMOTE_ORIGINS` should stay empty.
+- **Plugin UI can now run in a sandboxed frame.** Insights and Spending Trends
+  do. They no longer share the app's page, your session or its cookies, and they
+  reach data only through the app, with a short-lived token that carries just
+  their grants. They load a little differently: a widget below the fold keeps a
+  minimum height until it scrolls into view, the first widgets take a little
+  longer to appear because each frame loads its own copy of React, and a frame
+  costs roughly 6 to 9 MiB and 150 ms after the first. Budgets, Import CSV,
+  Upcoming, Forecast and Debt payoff still run in the app's own page, fully
+  trusted. The sandbox does not stop everything: in Chromium, a hostile plugin
+  can still cause some requests through `<link rel=prerender>` and WebRTC and
+  read nothing back. It is experimental and has not been independently
+  reviewed. See
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+- **Third-party plugins can be added by hand, off by default.** Nothing changes
+  unless you set `PLUGIN_REMOTE_ORIGINS` and `PLUGIN_MANIFEST_DIR`, both empty by
+  default. There is still no install flow or catalog. See
+  [Adding a third-party plugin](../features/plugins#adding-a-third-party-plugin-experimental).
 
 ### 0.4.2 → 0.5.0
 
