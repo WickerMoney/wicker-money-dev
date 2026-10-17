@@ -139,8 +139,7 @@ owner role.
 - **Plugin UI can now run in a sandboxed frame.** Insights and Spending Trends
   do. They no longer share the app's page, your session or its cookies, and they
   reach data only through the app, with a short-lived token that carries just
-  their grants. They load a little differently: a widget below the fold keeps a
-  minimum height until it scrolls into view, the first widgets take a little
+  their grants. They load a little differently: the first widgets take a little
   longer to appear because each frame loads its own copy of React, and a frame
   costs roughly 6 to 9 MiB and 150 ms after the first. Budgets, Import CSV,
   Upcoming, Forecast and Debt payoff still run in the app's own page, fully

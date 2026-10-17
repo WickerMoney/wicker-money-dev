@@ -85,9 +85,10 @@ What this does and doesn't change:
   dialog, and a frame can't draw outside its own rectangle, so tooltips and
   menus must fit inside it. The host owns the frame's width and clamps the
   height you report (widgets at most 800 px).
-- **A widget below the fold may keep its minimum height until it scrolls into
-  view**, because Chromium does not run an off-screen cross-origin frame's
-  layout observers.
+- **Report your height with `observeSize`.** Chromium does not run an
+  off-screen cross-origin frame's rendering updates, so a `ResizeObserver` of
+  your own never fires for a widget below the fold. `observeSize` also re-reads
+  the height every 250 ms, which is how an off-screen widget gets its size.
 - **It stays experimental** until the isolation work has settled, so its
   protocol can change in any minor release.
 - The root does not re-export it: a frame has no use for the Zod manifest code
