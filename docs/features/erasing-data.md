@@ -9,7 +9,7 @@ The bottom of **Settings** has two erase actions. They are separate sections,
 with separate buttons, separate confirmation phrases and separate code paths on
 purpose, so confirming one can't be mistaken for the other. Neither has an undo.
 
-*Added in NEXT_VERSION.*
+*Added in 0.6.0.*
 
 | | Erase my data | Erase this entire instance |
 |---|---|---|

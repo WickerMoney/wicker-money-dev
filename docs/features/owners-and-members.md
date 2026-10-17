@@ -59,7 +59,7 @@ and make the ones that shouldn't be owners members.
 
 ## Changing someone's role
 
-*Added in NEXT_VERSION. Before that, a role could only be changed with SQL.*
+*Added in 0.6.0. Before that, a role could only be changed with SQL.*
 
 **Settings → People** (`/settings#people`) is for owners; a member never sees
 it. It lists every account on the instance, oldest first, with its email, when

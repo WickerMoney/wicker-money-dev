@@ -12,7 +12,7 @@ remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
-plugin code from 0.3.0 to NEXT_VERSION.
+plugin code from 0.3.0 to 0.6.0.
 
 ## Stability tiers
 
@@ -46,11 +46,11 @@ README and tagged `@stable` or `@experimental` in its module documentation.
   between minor releases. The tiers say how much notice to expect and which
   parts are settled.
 
-No `./recurrence` export was removed in 0.5.0 or in NEXT_VERSION.
+No `./recurrence` export was removed in 0.5.0 or in 0.6.0.
 
 ### The isolated entry point
 
-*Added in NEXT_VERSION. Experimental. The web app hosts it, and Insights and
+*Added in 0.6.0. Experimental. The web app hosts it, and Insights and
 Spending Trends run on it.*
 
 `@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
@@ -99,7 +99,7 @@ The protocol is described in the
 
 ### Integrity pin and refused permissions
 
-*Added in NEXT_VERSION.*
+*Added in 0.6.0.*
 
 A manifest can carry an optional `integrity` map of Subresource Integrity values
 (for example `sha384-...`), keyed by file path relative to the plugin's directory. A plugin
@@ -119,7 +119,7 @@ because a third-party plugin has no server-side code, storage or scheduled work.
 ### Calendar helpers: `addDays` and `addMonths`
 
 *Added in 0.5.0 on `/recurrence`. Moved to the stable `/date` entry point in
-NEXT_VERSION.*
+0.6.0.*
 
 Import them from `@wickermoney/plugin-sdk/date`:
 
@@ -171,7 +171,7 @@ const { manifest } = result
   importing the root still brings it in. Keep value imports from the root out
   of plugin UI bundles; `/runtime` is the entry point for browser code.
 
-:::caution[Breaking in NEXT_VERSION: the manifest Zod schemas are gone from the root]
+:::caution[Breaking in 0.6.0: the manifest Zod schemas are gone from the root]
 `pluginManifestSchema`, `tableGrantSchema`, `widgetContributionSchema`,
 `pageContributionSchema` and `remoteEntrySchema` are no longer exported from
 `@wickermoney/plugin-sdk`. Exporting them tied the stable root to Zod's major
@@ -246,7 +246,7 @@ import type { RouteContext, RegisterRoute, Query, RunAsPlugin } from '@wickermon
   host injects.
 - `RegisterRoute` takes an optional fourth argument. `bodyLimit` raises the
   request-body limit, in bytes, for that route only. `longRunning: true`
-  (added in NEXT_VERSION) asks the host to run the route's database work under
+  (added in 0.6.0) asks the host to run the route's database work under
   the longer statement limit, `DB_LONG_STATEMENT_TIMEOUT`, instead of
   `DB_STATEMENT_TIMEOUT` (see
   [Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit)).
