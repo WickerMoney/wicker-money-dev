@@ -23,7 +23,7 @@ to point a client at.
 
 Responses over 1 KiB are compressed (brotli or gzip, per `Accept-Encoding`),
 with `Content-Encoding` and `Vary: Accept-Encoding` set; a client that doesn't
-ask for compression gets the plain body. *Added in NEXT_VERSION.* Behind a
+ask for compression gets the plain body. *Added in 0.6.0.* Behind a
 reverse proxy, don't compress a second time (see
 [Compression: don't compress twice](../self-hosting/configuration#compression-dont-compress-twice)).
 
@@ -109,7 +109,7 @@ server code and read through the `core` routes below.
 `GET /api/v1/accounts` lists the signed-in user's accounts by name. Archived
 accounts are left out unless `?includeArchived=true`.
 
-*`fields` added in NEXT_VERSION.* `?fields=basic` returns only `id`, `name`,
+*`fields` added in 0.6.0.* `?fields=basic` returns only `id`, `name`,
 `accountType`, `currencyCode`, `spendable` and `archivedAt`: no balance,
 opening balance or buffer. It also skips the work the full list does to
 compute balances, which sums every transaction of every account, so use it to
@@ -126,7 +126,7 @@ Added in 0.4.0. See [Plugins](../features/plugins).
 | `GET /api/v1/plugins` | Any signed-in user | The enabled plugins' manifests, each with a `bundled` flag, and `failures` for plugins that are on but didn't load. This is what the web app loads |
 | `GET /api/v1/plugins/registry` | Owner | Every registered plugin, on or off: `id`, `name`, `description`, `author`, `version`, `bundled`, `enabled`, `status` (`enabled`, `disabled` or `failed`), `failure` (why it can't load, reported even while it's off, or `null`) and `contributes` (the titles of the pages and widgets it adds) |
 | `PATCH /api/v1/plugins/:pluginId` | Owner | Body `{ "enabled": boolean }`. Idempotent. Returns `{ plugin, previous: { enabled }, changed, changedBy: { id, email }, changedAt }`, and logs each change at `info` |
-| `POST /api/v1/plugins/:pluginId/token` | Signed-in user (their own access token) | *Added in NEXT_VERSION.* Mints a five-minute token that speaks for one plugin, for the app to hold on a sandboxed plugin's behalf. Returns `{ token, expiresAt, pluginId, grants }`. `404 not_found` for an id nobody registered, `404 plugin_disabled` for a plugin that is off or whose manifest doesn't load. A plugin token can't mint another |
+| `POST /api/v1/plugins/:pluginId/token` | Signed-in user (their own access token) | *Added in 0.6.0.* Mints a five-minute token that speaks for one plugin, for the app to hold on a sandboxed plugin's behalf. Returns `{ token, expiresAt, pluginId, grants }`. `404 not_found` for an id nobody registered, `404 plugin_disabled` for a plugin that is off or whose manifest doesn't load. A plugin token can't mint another |
 
 A member calling either owner route gets `403 owner_required`. An unknown
 `pluginId` is a `404`. Turning a plugin off deletes nothing. While it's off,
@@ -135,7 +135,7 @@ its `x-wickermoney-plugin` header gets `403 grant_denied`.
 
 ### Plugin tokens
 
-*Added in NEXT_VERSION.* The web app holds a plugin token for each plugin that runs in a sandboxed frame; plugins in the app's own page don't use one. A plugin token carries the user
+*Added in 0.6.0.* The web app holds a plugin token for each plugin that runs in a sandboxed frame; plugins in the app's own page don't use one. A plugin token carries the user
 (`sub`), the session it was minted under, the plugin id and the tables the
 plugin's manifest grants, with its own audience so it never verifies as an
 ordinary access token. It lives five minutes, and one older than fifteen is
@@ -157,7 +157,7 @@ change what a UI plugin running in the app's page can reach; see
 
 ## Users and roles
 
-*Added in NEXT_VERSION.* Both routes are owner only; a member gets
+*Added in 0.6.0.* Both routes are owner only; a member gets
 `403 owner_required`. This is what Settings → People calls (see
 [Owners and members](../features/owners-and-members#changing-someones-role)).
 
@@ -184,13 +184,13 @@ The rules:
 
 | Method and path | Who | What it does |
 |---|---|---|
-| `POST /api/v1/settings/export-ticket` | Any signed-in user | *Added in NEXT_VERSION.* Body `{ "password": "..." }`. Checks the account password again and returns `{ ticket, expiresAt }`. The ticket works for one download, for two minutes, for that user in that session. A wrong password is `403 password_incorrect` (not `401`, so a client doesn't read it as an expired session), counted against the same attempt limit as the erase routes (`429` past it). Refused for a plugin token |
+| `POST /api/v1/settings/export-ticket` | Any signed-in user | *Added in 0.6.0.* Body `{ "password": "..." }`. Checks the account password again and returns `{ ticket, expiresAt }`. The ticket works for one download, for two minutes, for that user in that session. A wrong password is `403 password_incorrect` (not `401`, so a client doesn't read it as an expired session), counted against the same attempt limit as the erase routes (`429` past it). Refused for a plugin token |
 | `GET /api/v1/settings/export` | Any signed-in user, **with a ticket** | Everything the caller owns as one JSON document, `{ exportedAt, core, plugins }`, served as `wickermoney-export-<date>.json`. Send the ticket in the `x-wickermoney-export-ticket` header. Without one it is `403 export_confirmation_required`; with an unknown, expired, used or someone else's, `403 export_ticket_invalid`. A consistent snapshot, streamed as it is read. A failure after the first byte aborts the connection and leaves an unparseable file rather than a plausible one. Runs under `DB_LONG_STATEMENT_TIMEOUT` |
 | `POST /api/v1/settings/erase-my-data` | Any signed-in user | Deletes everything the caller owns and ends all their sessions. The account itself stays |
 | `GET /api/v1/settings/erase-instance` | Owner | The facts shown before an instance erase: `databaseName`, `registrationEnabled`, `bootstrapOwnerEmail`, `otherSessions`, `otherUsers` and a `blocker` (or `null`). Changes nothing |
 | `POST /api/v1/settings/erase-instance` | Owner | Deletes every account and everything in every plugin schema, and signs everyone out |
 
-*The erase routes were added in NEXT_VERSION.* What each erase removes, and
+*The erase routes were added in 0.6.0.* What each erase removes, and
 what it keeps, is on [Erasing your data](../features/erasing-data).
 
 Both erase routes take `{ "password", "confirmation" }`, the account password
@@ -268,7 +268,7 @@ Added in 0.3.0; dismissals and the `transaction-matches` routes in 0.4.0. See
 Each candidate carries `dismissed`. Nothing is ever linked without a `POST
 .../matches`.
 
-**`truncated`** *(added in NEXT_VERSION)*. Candidates for matching come from an
+**`truncated`** *(added in 0.6.0)*. Candidates for matching come from an
 account's newest 500 transactions in the date range that aren't already linked
 to an occurrence. A very busy account could drop the oldest of them with no sign
 that it had. The candidates response now carries `truncated` on each leg, and
@@ -286,7 +286,7 @@ tables the plugin's manifest declares in `requiredTables`:
 |---|---|---|
 | `/core/recurring-items/list` | `recurring_items` | Active items with their legs and next due date |
 | `/core/recurring-items/occurrences` | `recurring_items` | Occurrences in a range, as above |
-| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences. Since NEXT_VERSION every leg of an occurrence also carries `accountName`, archived accounts included, so a client can name the other side of a transfer without asking for the account list |
+| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences. Since 0.6.0 every leg of an occurrence also carries `accountName`, archived accounts included, so a client can name the other side of a transfer without asking for the account list |
 | `/core/recurring-items/forecast?accountId&horizon` | `recurring_items`, `accounts` | The [Forecast](../features/forecast) view for one account |
 
 A `recurring_items` grant also covers `recurring_item_legs`. A missing grant
@@ -341,7 +341,7 @@ unaffected.
 ## Debt payoff
 
 The debt payoff plugin's routes, under `/api/v1/p/wickermoney.debt-payoff`.
-*Added in NEXT_VERSION.* See [Debt payoff](../features/debt-payoff) for what the
+*Added in 0.6.0.* See [Debt payoff](../features/debt-payoff) for what the
 plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
 at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
 24.99%. Unknown fields in a body are refused rather than ignored.
@@ -390,8 +390,8 @@ Both routes run under the longer `DB_LONG_STATEMENT_TIMEOUT`.
 
 ### The `analyze` response
 
-:::caution[Changed in NEXT_VERSION: `analyze` no longer returns every row]
-Before NEXT_VERSION, `analyze` answered with the verdict for every row of the
+:::caution[Changed in 0.6.0: `analyze` no longer returns every row]
+Before 0.6.0, `analyze` answered with the verdict for every row of the
 file, which for an 8 MB file was a 21 MB response. A client that read every row
 from it, rather than showing the counts and the rows to review, now sees only
 the first page. Read `flagged` for the rows that need a decision, and use

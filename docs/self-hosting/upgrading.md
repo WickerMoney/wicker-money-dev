@@ -48,7 +48,7 @@ owner role.
 
 ## Version notes
 
-### 0.5.0 → NEXT_VERSION \{#from-0-5-0}
+### 0.5.0 → 0.6.0 \{#from-0-5-0}
 
 - **Back up first.** Four migrations, **029 to 032**, all with a `down`. The
   sample compose file's `migrate` service runs them before the app starts. Run

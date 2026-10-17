@@ -82,7 +82,7 @@ isolation that doesn't exist yet.
 
 ## Trust boundary for UI plugins
 
-*Rewritten in NEXT_VERSION. The sandbox is new and has not been independently
+*Rewritten in 0.6.0. The sandbox is new and has not been independently
 reviewed.*
 
 A plugin's UI runs in one of two places, decided by the API

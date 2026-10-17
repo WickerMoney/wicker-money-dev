@@ -53,7 +53,7 @@ A member sees the plugins that are on, read-only.
 
 ## How much a plugin is trusted
 
-*Rewritten in NEXT_VERSION, which adds the sandboxed runtime. The sandbox is new
+*Rewritten in 0.6.0, which adds the sandboxed runtime. The sandbox is new
 code, and its broker and token path have not been through an independent
 security review.*
 

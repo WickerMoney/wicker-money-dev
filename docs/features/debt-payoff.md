@@ -10,7 +10,7 @@ loans and credit cards you owe on, choose a strategy and an extra amount to pay
 each month, and the page shows the date the last one is cleared, the interest
 it will cost, and how much that beats paying only the minimums.
 
-*Added in NEXT_VERSION, as a bundled plugin (`wickermoney.debt-payoff`).* It
+*Added in 0.6.0, as a bundled plugin (`wickermoney.debt-payoff`).* It
 shows up as **Debt payoff** in the main navigation and as a **Debt-free date**
 widget on the dashboard. Like every plugin, an owner can turn it off from
 [Settings → Plugins](./plugins); its debts are kept while it's off.

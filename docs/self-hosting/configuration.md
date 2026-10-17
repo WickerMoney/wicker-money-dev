@@ -26,14 +26,14 @@ without them.
 | `DATABASE_OWNER_URL` | *required* | Same database, connected as the owner. Only used for migrations (creating schemas, policies, `SECURITY DEFINER` functions) — never for reading application data, and never a "migrate from" source. |
 | `APP_DB_PASSWORD` | *required* | Migrations create `wickermoney_app` as `NOLOGIN` with no password (a migration file is the wrong place for a secret) and grant `LOGIN` using this value. Must match the password in `DATABASE_URL`. A placeholder such as `CHANGE_ME` is refused in production (see [Placeholder credentials](./upgrading#placeholder-credentials)). |
 | `APP_DB_ROLE` | `wickermoney_app` | Override only when several environments share one PostgreSQL *server* — roles are cluster-wide, so two environments reusing a role name means whichever migrated last owns the password. |
-| `DB_POOL_MAX` | `10` | *NEXT_VERSION and later.* Connections the API may hold open to PostgreSQL, 2 to 200. See [Pool, statement timeouts and the import limit](#pool-statement-timeouts-and-the-import-limit). |
-| `DB_STATEMENT_TIMEOUT` | `30000` | *NEXT_VERSION and later.* Longest one SQL statement may run, in **milliseconds** (1000 to 3600000). |
-| `DB_LONG_STATEMENT_TIMEOUT` | `300000` | *NEXT_VERSION and later.* The same limit, in milliseconds, for CSV import and the data export. Not lower than `DB_STATEMENT_TIMEOUT`. |
-| `IMPORT_MAX_ROWS` | `100000` | *NEXT_VERSION and later.* The most data rows one CSV import may contain, 1 to 1000000. |
+| `DB_POOL_MAX` | `10` | *0.6.0 and later.* Connections the API may hold open to PostgreSQL, 2 to 200. See [Pool, statement timeouts and the import limit](#pool-statement-timeouts-and-the-import-limit). |
+| `DB_STATEMENT_TIMEOUT` | `30000` | *0.6.0 and later.* Longest one SQL statement may run, in **milliseconds** (1000 to 3600000). |
+| `DB_LONG_STATEMENT_TIMEOUT` | `300000` | *0.6.0 and later.* The same limit, in milliseconds, for CSV import and the data export. Not lower than `DB_STATEMENT_TIMEOUT`. |
+| `IMPORT_MAX_ROWS` | `100000` | *0.6.0 and later.* The most data rows one CSV import may contain, 1 to 1000000. |
 
 ## Pool, statement timeouts and the import limit
 
-*Added in NEXT_VERSION.* Four settings bound how much database work one API
+*Added in 0.6.0.* Four settings bound how much database work one API
 process does. Each is read at start-up and checked: a value outside its range
 stops the API with a configuration error that names the variable, rather than
 being clamped.
@@ -151,7 +151,7 @@ Rate limit counters live in memory — per API process, reset on restart.
 |---|---|---|
 | `WEB_DIST_DIR` | unset | Directory holding the built web app. When set, the API serves the UI and the plugin remotes itself, on the same origin as `/api` — which the refresh cookie and same-origin plugin loading both rely on. The container image sets this to `/app/web`; leave it unset in development, where Vite serves the UI on `:5173` and proxies `/api` to the API. |
 | `PLUGIN_REMOTE_ORIGINS` | unset | Comma-separated `https` origins that a third-party plugin's front-end code may load from, beyond the app's own origin. Leave it empty unless you have chosen to run a plugin from that origin. A plugin from a listed origin runs only in a sandboxed frame, never in the app's own page, and only against an integrity pin in its manifest; the origin is added to the frame's content security policy only, not the page's. A plugin granted your transactions can still send them out through the known gaps in the sandbox (see [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted)). |
-| `PLUGIN_MANIFEST_DIR` | unset | *NEXT_VERSION and later.* A directory of third-party plugin manifests (`*.json`), read once at start-up; restart the API after changing it. Each manifest is checked like any other, registered **switched off**, and run only in a frame. A manifest that declares `endpoints` or `exporters`, a permission the host doesn't implement, an origin that isn't in `PLUGIN_REMOTE_ORIGINS`, or no `integrity` pin covering its entry file is refused, and the reason is listed with the plugin. Unset, nothing changes. There is no install flow; see [Adding a third-party plugin](../features/plugins#adding-a-third-party-plugin-experimental). |
+| `PLUGIN_MANIFEST_DIR` | unset | *0.6.0 and later.* A directory of third-party plugin manifests (`*.json`), read once at start-up; restart the API after changing it. Each manifest is checked like any other, registered **switched off**, and run only in a frame. A manifest that declares `endpoints` or `exporters`, a permission the host doesn't implement, an origin that isn't in `PLUGIN_REMOTE_ORIGINS`, or no `integrity` pin covering its entry file is refused, and the reason is listed with the plugin. Unset, nothing changes. There is no install flow; see [Adding a third-party plugin](../features/plugins#adding-a-third-party-plugin-experimental). |
 
 ## Reverse proxy notes
 
@@ -162,7 +162,7 @@ etc.), set `TRUST_PROXY=true` and forward `X-Forwarded-For`.
 
 ### Compression: don't compress twice
 
-*Added in NEXT_VERSION.*
+*Added in 0.6.0.*
 
 The API compresses its own responses, because the image serves the web bundle
 and the API from one process with no proxy guaranteed in front. It uses brotli
