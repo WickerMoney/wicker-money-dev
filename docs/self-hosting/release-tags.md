@@ -1,19 +1,18 @@
 ---
 sidebar_position: 4
-description: What the :latest, :next, :edge and version tags on the Wicker Money image mean, and which one to run.
+description: What the :latest, :edge and version tags on the Wicker Money image mean, and which one to run.
 ---
 
 # Release tags
 
 Every image lives at `ghcr.io/wickermoney/wicker-money`, built for both
-`linux/amd64` and `linux/arm64`. Four kinds of tag point at it. Only the
-version tags stay put; the other three move.
+`linux/amd64` and `linux/arm64`. Three kinds of tag point at it. Only the
+version tags stay put; the other two move.
 
 | Tag | Points at | Moves when | Use it for |
 |---|---|---|---|
 | `:0.5.0` (a version) | That exact release | Never | Anything you keep running |
 | `:latest` | The newest stable release | A stable tag is released | A first look, or tracking releases on purpose |
-| `:next` | The newest prerelease (`0.6.0-rc.1`) | A prerelease tag is released | Trying a release candidate before it ships |
 | `:edge` | The newest commit on `main` | Every merge to `main` | Trying unreleased work |
 
 ## Version tags
@@ -33,16 +32,19 @@ The newest release that isn't a prerelease. It changes on every stable
 release, with no warning in your compose file, and bundled plugins ship inside
 the image, so a pull can change which plugin versions you're running.
 
-## `:next`
+## Release candidates
 
 A tag with a hyphen, such as `v0.6.0-rc.1`, is a prerelease. It publishes the
-version tag `:0.6.0-rc.1` and moves `:next`, and it never touches `:latest`.
-The release is marked as a prerelease on GitHub.
+version tag `:0.6.0-rc.1` and nothing else: it never touches `:latest`, and the
+release is marked as a prerelease on GitHub. To try a candidate, pin that
+version tag in your compose file and run it against a copy of your data.
 
-`:next` is not "newer than `:latest`". Once `0.6.0` ships, `:latest` is
-`0.6.0` and `:next` stays on `0.6.0-rc.2` until the following release
-candidate. The npm packages follow the same rule: the stable release goes
-under the `latest` dist-tag and a prerelease under `next`.
+There is no `:next` tag. It used to follow the newest candidate, but after a
+stable release it sat on an older candidate than `:latest`, which made it
+easy to pull something stale by mistake. It was retired after `0.5.0` and no
+longer updates, so don't point anything at it. The npm packages still use a
+`next` dist-tag: the stable release goes under `latest` and a prerelease
+under `next`.
 
 ## `:edge`
 
@@ -71,8 +73,8 @@ sha is the first 7 characters of the commit on GitHub.
    reading the [changelog](https://github.com/wickermoney/wicker-money/blob/main/CHANGELOG.md).
 2. **`:latest`**, if you're happy for a pull to be an upgrade. Fine for a first
    look; for anything long-lived, prefer the version tag.
-3. **`:next`**, to test a release candidate on a copy of your data before the
-   stable release lands.
+3. **A release candidate's version tag** (`:0.6.0-rc.1`), to test it on a copy
+   of your data before the stable release lands.
 4. **`:edge`**, for contributors and anyone who wants a change that has merged
    but isn't released. Keep it away from the only copy of your finances.
 
