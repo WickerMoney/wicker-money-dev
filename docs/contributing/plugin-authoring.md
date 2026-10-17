@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-description: Rules for plugin code that the manifest schema doesn't tell you, money arithmetic with the SDK, the server contract, shared reads, what happens when a plugin is turned off, and showing form errors.
+description: Rules for plugin code that the manifest schema doesn't tell you, validating a manifest, money and date arithmetic with the SDK, the server contract, shared reads, what happens when a plugin is turned off, and showing form errors.
 ---
 
 # Writing a plugin
@@ -12,8 +12,7 @@ remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
-plugin code from 0.3.0 to 0.5.0, plus two SDK changes merged since that are not
-in a release yet.
+plugin code from 0.3.0 to NEXT_VERSION.
 
 ## Stability tiers
 
@@ -29,6 +28,7 @@ README and tagged `@stable` or `@experimental` in its module documentation.
 | `@wickermoney/plugin-sdk/money` | stable |
 | `@wickermoney/plugin-sdk/server` | stable |
 | `@wickermoney/plugin-sdk/date` | stable |
+| `@wickermoney/plugin-sdk/isolated` | experimental |
 | `@wickermoney/plugin-sdk/recurrence` | experimental |
 
 - **Stable.** A breaking change (a removed or renamed export, a changed
@@ -46,12 +46,80 @@ README and tagged `@stable` or `@experimental` in its module documentation.
   between minor releases. The tiers say how much notice to expect and which
   parts are settled.
 
-No `./recurrence` export was removed in 0.5.0, and none has been removed since.
+No `./recurrence` export was removed in 0.5.0 or in NEXT_VERSION.
+
+### The isolated entry point
+
+*Added in NEXT_VERSION. Experimental. The web app hosts it, and Insights and
+Spending Trends run on it.*
+
+`@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
+a sandboxed frame instead of in the app's own page. A `PluginContext` is an
+object of functions and cannot cross a frame boundary, so the entry point
+defines a message protocol (version 1) over a `MessagePort`, validators the
+host runs on every message a frame sends, and an in-frame client,
+`connectToHost`, that rebuilds the same `PluginContext`. A component written
+against `PluginWidgetProps` or `PluginPageProps` runs in either place. The
+manifest gains an optional `isolated` flag that declares a plugin was built for
+this runtime. It is a declaration, not a grant: it can only move a plugin
+towards isolation, and the host decides which runtime a plugin gets.
+
+What this does and doesn't change:
+
+- **It is additive.** `SDK_MAJOR_VERSION` stays `0`, `/runtime` is unchanged,
+  and no manifest needs editing, so there is nothing to migrate.
+- **The host decides where a plugin runs.** A bundled plugin on a short
+  host-internal list runs in the app's own page; every other plugin, and any
+  plugin whose manifest says `isolated: true`, runs in a sandboxed frame.
+  `GET /api/v1/plugins` reports the `runtime` of each. A plugin in a frame
+  reaches data only through the host's broker, with a token that carries just
+  its manifest's grants. See
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted)
+  for what the sandbox does not stop.
+- **A frame costs time and memory.** Roughly 6 to 9 MiB and 150 ms for each
+  frame after the first, and the first starts its own renderer process, so
+  keep a plugin's widgets few and its bundle small. Don't import the SDK root
+  in frame code: it carries the Zod manifest schemas (about 85 kB). Import
+  from `/runtime`, `/money` and `/date`.
+- **Keep overlays inside the frame.** The protocol has no host-drawn overlay or
+  dialog, and a frame can't draw outside its own rectangle, so tooltips and
+  menus must fit inside it. The host owns the frame's width and clamps the
+  height you report (widgets at most 800 px).
+- **Report your height with `observeSize`.** Chromium does not run an
+  off-screen cross-origin frame's rendering updates, so a `ResizeObserver` of
+  your own never fires for a widget below the fold. `observeSize` also re-reads
+  the height every 250 ms, which is how an off-screen widget gets its size.
+- **It stays experimental** until the isolation work has settled, so its
+  protocol can change in any minor release.
+- The root does not re-export it: a frame has no use for the Zod manifest code
+  the root carries.
+
+The protocol is described in the
+[SDK README](https://github.com/wickermoney/wicker-money/blob/main/packages/plugin-sdk/README.md#isolated-runtime-experimental).
+
+### Integrity pin and refused permissions
+
+*Added in NEXT_VERSION.*
+
+A manifest can carry an optional `integrity` map of Subresource Integrity values
+(for example `sha384-...`), keyed by file path relative to the plugin's directory. A plugin
+that isn't bundled, or whose entry the host doesn't serve itself, must have one
+that lists its entry file. The frame has the browser verify every listed file
+before the plugin runs, and a changed file is refused with a reason. It covers
+only the files it lists, not stylesheets. The SDK exports `parseIntegrity` and
+`checkRemoteEntryIntegrity`. `integrity` is optional and additive, so existing
+manifests are unaffected.
+
+A manifest that declares `network:outbound`, `schedule:daily` or `notify` is now
+**refused at load**, with the reason on the plugin list. The host implements
+none of them; before this they loaded and were ignored. A non-bundled manifest
+also gets no `contributes.endpoints` or `contributes.exporters`: it is refused,
+because a third-party plugin has no server-side code, storage or scheduled work.
 
 ### Calendar helpers: `addDays` and `addMonths`
 
-*Added in 0.5.0 on `/recurrence`. Moved to the stable `/date` entry point since;
-not in a release yet.*
+*Added in 0.5.0 on `/recurrence`. Moved to the stable `/date` entry point in
+NEXT_VERSION.*
 
 Import them from `@wickermoney/plugin-sdk/date`:
 
@@ -103,7 +171,7 @@ const { manifest } = result
   importing the root still brings it in. Keep value imports from the root out
   of plugin UI bundles; `/runtime` is the entry point for browser code.
 
-:::caution[Breaking, not released yet: the manifest Zod schemas are gone from the root]
+:::caution[Breaking in NEXT_VERSION: the manifest Zod schemas are gone from the root]
 `pluginManifestSchema`, `tableGrantSchema`, `widgetContributionSchema`,
 `pageContributionSchema` and `remoteEntrySchema` are no longer exported from
 `@wickermoney/plugin-sdk`. Exporting them tied the stable root to Zod's major
@@ -176,6 +244,14 @@ import type { RouteContext, RegisterRoute, Query, RunAsPlugin } from '@wickermon
   describe what `register` is handed. `RuleForMatching`,
   `ConditionForMatching` and `RuleSubject` are the category-rule shapes the
   host injects.
+- `RegisterRoute` takes an optional fourth argument. `bodyLimit` raises the
+  request-body limit, in bytes, for that route only. `longRunning: true`
+  (added in NEXT_VERSION) asks the host to run the route's database work under
+  the longer statement limit, `DB_LONG_STATEMENT_TIMEOUT`, instead of
+  `DB_STATEMENT_TIMEOUT` (see
+  [Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit)).
+  Set it only on a route that does bulk work, such as a file import. The host
+  chooses the limit. It is additive: `SDK_MAJOR_VERSION` is unchanged.
 - `PluginRouteError(message, statusCode, code, issues?)` refuses a request the
   person can fix. Throw it, or a subclass, and the API answers with that
   status and code.
@@ -188,7 +264,8 @@ The subpath has no dependencies (no Zod) and is also re-exported from the
 package root. It is additive: nothing already published moved. Budgets and
 CSV Import, whose packages are private, dropped their own copies, so there is
 nothing for an outside author to migrate. Server-side plugin code is for
-bundled plugins only while third-party install is unsupported.
+bundled plugins only: it runs in the API process, and a third-party plugin is
+refused it.
 
 ## Reads are shared between widgets
 

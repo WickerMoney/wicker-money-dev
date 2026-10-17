@@ -17,9 +17,9 @@ Wicker Money is a thin core plus installable plugins. Each plugin declares a
 `requiredTables` manifest field, and a per-plugin PostgreSQL role guards it for
 the plugin's server-side code: a plugin that asks for `transactions` and `categories` must
 not be able to reach `accounts`, and must see only the current user's rows
-within the tables it *does* get. A plugin's UI code is different: it runs in
-the app's origin as the signed-in user, so `requiredTables` doesn't restrict
-it, and even the server-side guard is a guardrail rather than a sandbox (see
+within the tables it *does* get. A plugin's UI code is different: for the five bundled plugins still in the
+app's own page it runs in the app's origin as the signed-in user, so
+`requiredTables` doesn't restrict it, and even the server-side guard is a guardrail rather than a sandbox (see
 [Trust boundary for UI plugins](#trust-boundary-for-ui-plugins)).
 
 Every mechanism that enforcement needs is PostgreSQL-specific — a
@@ -82,30 +82,56 @@ isolation that doesn't exist yet.
 
 ## Trust boundary for UI plugins
 
-Plugin pages and widgets are loaded over Module Federation and run **fully
-trusted, in the host's origin**. They share the page, its memory and the
-signed-in user's session with the host. The scoped client, the
-`x-wickermoney-plugin` header and the manifest check in `ctx.api` catch
-mistakes early; they are not a security boundary. UI code that wants to can
-call any `/api/v1/*` route the user can, including routes outside its
-`requiredTables` and data export.
+*Rewritten in NEXT_VERSION. The sandbox is new and has not been independently
+reviewed.*
 
-Server-side plugin code, which today means bundled plugins, runs under its
-own PostgreSQL role, and the plugin query runner refuses statements that
-change the role or session settings. That is a **guardrail, not a sandbox**.
-The runner reads SQL text, so crafted SQL (a `DO` block that builds
-`RESET ROLE` at run time, for instance) can return to the application role and
-lose the manifest's table limits. Row-level security still holds, because the
-tenant context is signed: such a statement reads no other user's rows.
-Closing that gap needs a connection the plugin cannot leave, which comes with
-plugin isolation.
+A plugin's UI runs in one of two places, decided by the API
+(`pluginRuntimeFor`): the app's own page, or a sandboxed frame. Only a bundled
+plugin on a short host-internal list can run in the page. Insights and Spending
+Trends are not on it; Budgets, Import CSV, Upcoming, Forecast and Debt payoff
+are, and run **fully trusted, in the host's origin**, sharing the page, its
+memory and the signed-in user's session. For them the scoped client, the
+`x-wickermoney-plugin` header and the manifest check in `ctx.api` catch mistakes
+early; they are not a security boundary.
 
-That is why third-party plugin install stays unsupported, and
-`PLUGIN_REMOTE_ORIGINS` stays empty by default. The options for closing the gap are being weighed in
-a draft decision record that isn't published yet: sandboxed iframes behind a
-message broker, scoped per-plugin tokens as hardening, and review or signing
-as an admission control. Nothing is decided or built yet, and it will appear
-here once it is.
+Everything else runs in an `<iframe sandbox="allow-scripts">` (never
+`allow-same-origin`), loaded from `GET /plugin-frame`, which the API serves with
+its own content security policy (`sandbox allow-scripts; default-src 'none';
+connect-src 'none'`). The frame has an opaque origin: no cookies, storage or DOM
+of the host, and no network of its own for script. Its only way out is a
+message channel to a broker in the host page, the one piece of code that holds a
+plugin token. The broker checks the manifest grants and a path allow-list, then
+the per-user response cache, then the network, and rate-limits and validates
+every message. A plugin token is a signed five-minute JWT with its own audience,
+carrying the plugin id and its granted tables. The server classifies every
+`/api/v1` route (`auth/pluginRouteAccess.ts`): a token reaches only the granted
+`GET /core/*` reads and the plugin's own `/p/<id>/` routes, a route left out of
+the table is denied, and a test fails when one is. A frame costs time and
+memory: roughly 6 to 9 MiB and 150 ms per frame after the first, and a first
+frame starts its own renderer process.
+
+Known gaps, observed in Chromium 141 (WebKitGTK 2.52 for the last one only): the
+frame's policy does not govern `<link rel=prerender>` or WebRTC, and a frame can
+navigate itself to a same-origin URL the page's frame policy allows. A malicious
+plugin can cause some credential-less requests and read nothing back; see
+[How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+
+Server-side plugin code, which means bundled plugins only, runs under its own
+PostgreSQL role, and the plugin query runner refuses statements that change the
+role or session settings. That is a **guardrail, not a sandbox**. The runner
+reads SQL text, so crafted SQL (a `DO` block that builds `RESET ROLE` at run
+time, for instance) can return to the application role and lose the manifest's
+table limits. Row-level security still holds, because the tenant context is
+signed: such a statement reads no other user's rows. A connection the plugin
+cannot leave would close that gap; it does not exist, so server-side plugin
+code stays first-party.
+
+A third-party UI plugin can be added by an operator by hand: an https origin in
+`PLUGIN_REMOTE_ORIGINS`, and a manifest with a Subresource Integrity pin for
+every file of the build in `PLUGIN_MANIFEST_DIR`. It runs only in a frame, with
+no server code, and `PLUGIN_REMOTE_ORIGINS` stays empty by default. There is no
+install flow, catalog or signing, and an independent review of the broker and
+token path is required before any of those.
 
 ## Interpreting money is a plugin's job
 

@@ -21,6 +21,12 @@ Every route is under `/api/v1`. The API and web app share one origin (see
 [Architecture](../contributing/architecture)) — there's no separate API host
 to point a client at.
 
+Responses over 1 KiB are compressed (brotli or gzip, per `Accept-Encoding`),
+with `Content-Encoding` and `Vary: Accept-Encoding` set; a client that doesn't
+ask for compression gets the plain body. *Added in NEXT_VERSION.* Behind a
+reverse proxy, don't compress a second time (see
+[Compression: don't compress twice](../self-hosting/configuration#compression-dont-compress-twice)).
+
 ## Authentication
 
 - Access tokens are short-lived (15 minutes by default) and sent by the
@@ -84,17 +90,32 @@ reference above will cover:
 | `categories` | Categories, category rules, rule preview |
 | `recurring` | Recurring items, their occurrences, and matching transactions to them (`/api/v1/recurring-items`) |
 | `onboarding` | First-run / starter setup |
-| `settings` | Instance and account settings, data export |
+| `users` | Owner-only account administration: listing accounts and changing a role (`/api/v1/users`) |
+| `settings` | Instance and account settings, data export, and the two erase actions |
 | `plugins` | Plugin registry: the plugins the app loads, and the owner-only list and on/off switch |
 | `core` | Read-only data routes for plugins (`/api/v1/core/...`), each behind a manifest grant |
 
-Bundled plugins with a server half (budgets, import-csv) register their own
+Bundled plugins with a server half (budgets, import-csv, debt-payoff) register their own
 routes under `/api/v1/p/<pluginId>/`, using the plugin-host mechanism
 described in [Architecture](../contributing/architecture). They aren't core
-API surface; [Budgets](#budgets) below lists the routes that come up most.
+API surface; [Budgets](#budgets), [Debt payoff](#debt-payoff) and
+[Import CSV](#import-csv) below list the routes that come up most.
 While a plugin is turned off, its routes answer `404 plugin_disabled`. The
 other bundled plugins (insights, spending-trends, upcoming, forecast) have no
 server code and read through the `core` routes below.
+
+## Accounts
+
+`GET /api/v1/accounts` lists the signed-in user's accounts by name. Archived
+accounts are left out unless `?includeArchived=true`.
+
+*`fields` added in NEXT_VERSION.* `?fields=basic` returns only `id`, `name`,
+`accountType`, `currencyCode`, `spendable` and `archivedAt`: no balance,
+opening balance or buffer. It also skips the work the full list does to
+compute balances, which sums every transaction of every account, so use it to
+fill a picker (the Transactions page's account filters do). Leave `fields` out,
+or send `fields=full`, for the unchanged full list. Any other value is a
+`400 validation_failed`.
 
 ## Plugins
 
@@ -105,11 +126,89 @@ Added in 0.4.0. See [Plugins](../features/plugins).
 | `GET /api/v1/plugins` | Any signed-in user | The enabled plugins' manifests, each with a `bundled` flag, and `failures` for plugins that are on but didn't load. This is what the web app loads |
 | `GET /api/v1/plugins/registry` | Owner | Every registered plugin, on or off: `id`, `name`, `description`, `author`, `version`, `bundled`, `enabled`, `status` (`enabled`, `disabled` or `failed`), `failure` (why it can't load, reported even while it's off, or `null`) and `contributes` (the titles of the pages and widgets it adds) |
 | `PATCH /api/v1/plugins/:pluginId` | Owner | Body `{ "enabled": boolean }`. Idempotent. Returns `{ plugin, previous: { enabled }, changed, changedBy: { id, email }, changedAt }`, and logs each change at `info` |
+| `POST /api/v1/plugins/:pluginId/token` | Signed-in user (their own access token) | *Added in NEXT_VERSION.* Mints a five-minute token that speaks for one plugin, for the app to hold on a sandboxed plugin's behalf. Returns `{ token, expiresAt, pluginId, grants }`. `404 not_found` for an id nobody registered, `404 plugin_disabled` for a plugin that is off or whose manifest doesn't load. A plugin token can't mint another |
 
 A member calling either owner route gets `403 owner_required`. An unknown
 `pluginId` is a `404`. Turning a plugin off deletes nothing. While it's off,
 its own routes answer `404 plugin_disabled`, and a core data request carrying
 its `x-wickermoney-plugin` header gets `403 grant_denied`.
+
+### Plugin tokens
+
+*Added in NEXT_VERSION.* The web app holds a plugin token for each plugin that runs in a sandboxed frame; plugins in the app's own page don't use one. A plugin token carries the user
+(`sub`), the session it was minted under, the plugin id and the tables the
+plugin's manifest grants, with its own audience so it never verifies as an
+ordinary access token. It lives five minutes, and one older than fifteen is
+refused whatever it says. Logging out or changing the password ends it with
+the session. A plugin token can reach only:
+
+- the `GET /api/v1/core/*` reads its plugin was granted, and
+- the plugin's own routes under `/api/v1/p/<its id>/`.
+
+Everything else answers `403 plugin_route_denied` before its handler runs:
+sign-in and refresh, `/settings/*` including the export, `/plugins/*`,
+`/users/*`, the app's own accounts, categories, transactions and recurring
+routes, and other plugins' routes. A plugin token has no owner powers, even
+when the user is an owner. A route nobody classified is denied.
+
+**Nothing in the web app mints or sends a plugin token yet**, so this does not
+change what a UI plugin running in the app's page can reach; see
+[How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+
+## Users and roles
+
+*Added in NEXT_VERSION.* Both routes are owner only; a member gets
+`403 owner_required`. This is what Settings → People calls (see
+[Owners and members](../features/owners-and-members#changing-someones-role)).
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/v1/users` | Every account on the instance, oldest first: `{ users: [{ id, email, role, createdAt }] }`. Nothing else about an account is returned: no password digest, no time zone, none of its data |
+| `PATCH /api/v1/users/:id/role` | Body `{ "role": "owner" \| "member" }`. Returns `{ user, previous: { role }, changed, changedBy: { id, email }, changedAt }`. Idempotent: asking for the role the account already has reports `changed: false` and writes nothing |
+
+The rules:
+
+- Promoting a member makes a second owner. Registration never does that; this
+  route is the only way.
+- Demoting the only owner is refused with `409 last_owner`, whoever asks. An
+  owner may name their own account, and may step down while another owner
+  exists.
+- If two owners demote each other at the same moment, one succeeds and the
+  other gets `403 owner_required` (it was demoted while it waited) or
+  `409 last_owner`.
+- The change applies to that account's next request, and its sessions are left
+  alone. Each change is logged at `info`.
+- `400` for a bad id or body, `404` for an unknown account.
+
+## Settings: export and erase
+
+| Method and path | Who | What it does |
+|---|---|---|
+| `POST /api/v1/settings/export-ticket` | Any signed-in user | *Added in NEXT_VERSION.* Body `{ "password": "..." }`. Checks the account password again and returns `{ ticket, expiresAt }`. The ticket works for one download, for two minutes, for that user in that session. A wrong password is `403 password_incorrect` (not `401`, so a client doesn't read it as an expired session), counted against the same attempt limit as the erase routes (`429` past it). Refused for a plugin token |
+| `GET /api/v1/settings/export` | Any signed-in user, **with a ticket** | Everything the caller owns as one JSON document, `{ exportedAt, core, plugins }`, served as `wickermoney-export-<date>.json`. Send the ticket in the `x-wickermoney-export-ticket` header. Without one it is `403 export_confirmation_required`; with an unknown, expired, used or someone else's, `403 export_ticket_invalid`. A consistent snapshot, streamed as it is read. A failure after the first byte aborts the connection and leaves an unparseable file rather than a plausible one. Runs under `DB_LONG_STATEMENT_TIMEOUT` |
+| `POST /api/v1/settings/erase-my-data` | Any signed-in user | Deletes everything the caller owns and ends all their sessions. The account itself stays |
+| `GET /api/v1/settings/erase-instance` | Owner | The facts shown before an instance erase: `databaseName`, `registrationEnabled`, `bootstrapOwnerEmail`, `otherSessions`, `otherUsers` and a `blocker` (or `null`). Changes nothing |
+| `POST /api/v1/settings/erase-instance` | Owner | Deletes every account and everything in every plugin schema, and signs everyone out |
+
+*The erase routes were added in NEXT_VERSION.* What each erase removes, and
+what it keeps, is on [Erasing your data](../features/erasing-data).
+
+Both erase routes take `{ "password", "confirmation" }`, the account password
+again and the typed phrase (`erase my data` or `erase this instance`, compared
+without regard to case or surrounding spaces); the instance erase also takes
+`"acknowledgeActiveSessions": true` to go ahead while other sessions are live.
+Both answer `204` and clear the refresh cookie, so the client is signed out.
+Nothing is deleted unless the response is `204`.
+
+| Status and code | Meaning |
+|---|---|
+| `400 validation_failed` | The phrase is wrong (issue on `confirmation`) or the password is missing |
+| `403 password_incorrect` | The password is wrong. It's a `403`, not a `401`, so a client that treats `401` as an expired session doesn't sign the person out over a typo |
+| `403 owner_required` | A member called an owner-only route |
+| `409 active_sessions` | Other sessions are live and `acknowledgeActiveSessions` wasn't `true` |
+| `409 registration_disabled`, `409 bootstrap_owner_mismatch` | The erased instance could not get a first owner again; see [the blockers](../features/erasing-data#blockers-on-erasing-an-instance) |
+| `429` | Past the per-user attempt limit |
+| `500 erase_unplanned_tables` | Erase my data only: the database holds a table with user data that the erase plan doesn't name. Nothing was deleted. The instance erase reads the tables from the database itself and doesn't have this check |
 
 ## Recurring items
 
@@ -157,17 +256,25 @@ Added in 0.3.0; dismissals and the `transaction-matches` routes in 0.4.0. See
 |---|---|
 | `GET /api/v1/recurring-items/:id/occurrences/:date` | One occurrence and where it stands. `404` if the schedule has no occurrence on that date |
 | `PUT /api/v1/recurring-items/:id/occurrences/:date` | How this occurrence differs from the series: `{ skipped?, expectedDate?, legs? }`, each replacing what was recorded. An empty body puts it back to the series. `expectedDate` is at most 31 days from the nominal date; `legs` (`[{ accountId, amount }]`) must fit the item, and a transfer must still net to zero. `409 occurrence_matched` when skipping one a transaction settles |
-| `GET /api/v1/recurring-items/:id/occurrences/:date/candidates` | For each unsettled leg, the transactions that could settle it, best first. Nothing is linked |
+| `GET /api/v1/recurring-items/:id/occurrences/:date/candidates` | For each unsettled leg, the transactions that could settle it, best first, and `truncated` (see below). Nothing is linked |
 | `POST /api/v1/recurring-items/:id/occurrences/:date/matches` | `{ transactionId }`: the transaction settled one leg (and the other row of a transfer, when it's on the item's other leg). `409` with `already_matched`, `leg_matched` or `occurrence_skipped` |
 | `DELETE /api/v1/recurring-items/:id/occurrences/:date/matches/:transactionId` | Unmatch. The transaction itself is unchanged |
 | `POST /api/v1/recurring-items/:id/occurrences/:date/dismissals` | `{ transactionId }`: never suggest this pair again (a transfer's partner row too). Returns `{ itemId, nominalDate, transactionIds }`. `409 already_matched` if the transaction settles this occurrence |
 | `DELETE /api/v1/recurring-items/:id/occurrences/:date/dismissals/:transactionId` | Undo a dismissal (`204`) |
-| `GET /api/v1/recurring-items/suggestions` | For occurrences from two weeks ago to a few days ahead, the most likely transaction for each unsettled leg, plus the `dismissed` pairs in the same window |
+| `GET /api/v1/recurring-items/suggestions` | For occurrences from two weeks ago to a few days ahead, the most likely transaction for each unsettled leg, plus the `dismissed` pairs in the same window, and `truncated` (see below) |
 | `GET /api/v1/recurring-items/transaction-matches?transactionIds=a,b,…` | For a page of transactions (1–200 ids), in one request: the occurrence each one settles, the occurrence suggested for it, and the occurrences it was dismissed for. Only transactions with something to show are listed |
 | `GET /api/v1/recurring-items/transaction-matches/:transactionId` | The occurrences one transaction could settle, best first, for picking a different one than suggested |
 
 Each candidate carries `dismissed`. Nothing is ever linked without a `POST
 .../matches`.
+
+**`truncated`** *(added in NEXT_VERSION)*. Candidates for matching come from an
+account's newest 500 transactions in the date range that aren't already linked
+to an occurrence. A very busy account could drop the oldest of them with no sign
+that it had. The candidates response now carries `truncated` on each leg, and
+the suggestions response carries a top-level `truncated`; either is `true` when
+a query hit the cap and a match that needs one of the oldest rows may be
+missing. It's additive, and the app doesn't show it yet.
 
 ### For plugins
 
@@ -179,7 +286,7 @@ tables the plugin's manifest declares in `requiredTables`:
 |---|---|---|
 | `/core/recurring-items/list` | `recurring_items` | Active items with their legs and next due date |
 | `/core/recurring-items/occurrences` | `recurring_items` | Occurrences in a range, as above |
-| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences |
+| `/core/recurring-items/upcoming` | `recurring_items`, `accounts` | The [Until payday](../features/until-payday) view: window, per-account outlook, safe to spend, occurrences. Since NEXT_VERSION every leg of an occurrence also carries `accountName`, archived accounts included, so a client can name the other side of a transfer without asking for the account list |
 | `/core/recurring-items/forecast?accountId&horizon` | `recurring_items`, `accounts` | The [Forecast](../features/forecast) view for one account |
 
 A `recurring_items` grant also covers `recurring_item_legs`. A missing grant
@@ -230,6 +337,84 @@ unaffected.
 | `DELETE /window?id=` | Remove a window |
 | `PUT /account-line` | Create or update an [account allowance](../features/budget-account-allowances). Body `{ month, accountId, planned, rollover?, excludedCategoryIds?, note? }`; `rollover` defaults to true. `400 bad_account` unless the account is a checking account of yours, `400 bad_excluded` for a category that isn't yours |
 | `DELETE /account-line?month=&accountId=` | Remove an account allowance for one month |
+
+## Debt payoff
+
+The debt payoff plugin's routes, under `/api/v1/p/wickermoney.debt-payoff`.
+*Added in NEXT_VERSION.* See [Debt payoff](../features/debt-payoff) for what the
+plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
+at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
+24.99%. Unknown fields in a body are refused rather than ignored.
+
+| Method and path | What it does |
+|---|---|
+| `GET /debts` | The person's debts, in their own order. `?includeArchived=true` adds archived ones |
+| `POST /debts` | Create a debt: `{ name, balance, apr, minimumPayment, accountId?, sortOrder?, archived? }` |
+| `GET /debts/:id` | One debt |
+| `PUT /debts/:id` | Change a debt. Send any of the create fields (at least one); a field not sent keeps its value, and `accountId: null` removes the link |
+| `DELETE /debts/:id` | Remove a debt. Answers `{ removed: 1 }` |
+| `GET /settings` | The saved `{ strategy, extraPayment, saved }`. Until the person saves a choice you get `avalanche`, `0` and `saved: false` |
+| `PUT /settings` | `{ strategy?, extraPayment? }`, either or both |
+| `GET /plan?strategy&extra&tz` | The payoff plan. A parameter left out comes from the saved settings, and `tz` (an IANA zone, deciding what today is) defaults to `UTC`. Asking for a different strategy doesn't change the saved one |
+| `GET /account-suggestions` | `{ accounts }`: the person's loan and credit card accounts that aren't archived, each with the `debtId` already tracking it or `null` |
+
+The plan carries the month-by-month `schedule`, each debt's payoff date, the
+`totalInterest` and `totalPaid`, `debtFreeDate` (or `null`), `months`, and the
+comparison with paying only the minimums (`minimumsOnly`, `monthsSaved`,
+`interestSaved`). A plan that doesn't finish within `monthLimit` (600) reports
+`capped: true` with a `cappedReason` and no debt-free date.
+
+Errors: `400` (`validation_failed`, `bad_id`, `bad_body`, `bad_account` for an
+account that isn't one of the person's own loan or credit card accounts),
+`404 not_found` (including a debt that belongs to someone else), and `409`:
+`account_already_linked` (another active debt already tracks that account) or
+`too_many_debts` (at most 50 debts that aren't archived). Each debt is the
+person's own: the table is under row-level security.
+
+## Import CSV
+
+The CSV import plugin's routes, under `/api/v1/p/wickermoney.import-csv`.
+A request carries the account, the column mapping and the CSV text. The CSV
+can be at most 8,000,000 bytes (`400` above that), and a file with more data
+rows than `IMPORT_MAX_ROWS` (default 100,000, counting rows that can't be
+read) is refused with `400 too_many_rows` before anything is written. See
+[Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit).
+Both routes run under the longer `DB_LONG_STATEMENT_TIMEOUT`.
+
+| Method and path | What it does |
+|---|---|
+| `POST /analyze` | Reads and classifies a file without writing anything |
+| `POST /commit` | Writes the import as one batch. Rows classified `new` are imported, `needs-review` rows only when their row number is in `acceptRowNumbers`, duplicates never. An optional `idempotencyKey` (1 to 128 characters) makes a repeat return the first outcome with `replayed: true` |
+| `GET /batches` | The 25 most recent batches |
+| `POST /batches/:id/revert` | Undo one import |
+
+### The `analyze` response
+
+:::caution[Changed in NEXT_VERSION: `analyze` no longer returns every row]
+Before NEXT_VERSION, `analyze` answered with the verdict for every row of the
+file, which for an 8 MB file was a 21 MB response. A client that read every row
+from it, rather than showing the counts and the rows to review, now sees only
+the first page. Read `flagged` for the rows that need a decision, and use
+`summary` for the counts. `commit` classifies the file itself, so rows you were
+never shown are still handled exactly as the person decided.
+:::
+
+`analyze` responds `200` with `{ summary, errors, rows, flagged }`:
+
+- `summary`: counts for the whole file: `total`, `new`, `duplicate`,
+  `needsReview` and `errors`.
+- `errors`: at most 50 row errors. `summary.errors` has the full count.
+- `rows`: the first 100 rows of the file with their verdicts, in file order. It
+  is a preview, not every row.
+- `flagged`: `{ total, offset, rows }`, a page of the rows with status
+  `needs-review`, in file order. `total` is every flagged row in the file
+  (equal to `summary.needsReview`).
+
+To read another page of flagged rows, send the same request with
+`flaggedOffset` (a whole number from 0, default 0) and `flaggedLimit` (a whole
+number from 1, default 500, **lowered to 1000** if larger). Each such request
+sends the file again and analyses it again. A value that isn't a whole number
+is a `400`.
 
 ## In the meantime
 

@@ -1,6 +1,6 @@
 ---
 sidebar_position: 9
-description: Who an instance's owner is, what a member can do, and how to check and change roles.
+description: Who an instance's owner is, what a member can do, and how an owner changes roles from Settings → People.
 ---
 
 # Owners and members
@@ -13,9 +13,12 @@ Every account on an instance is either an **owner** or a **member**.
 - Every account registered after it is a **member**.
 - Members use the app normally, with their own data. Every account's data is
   its own, owner or not. Being an owner doesn't give access to anyone else's
-  accounts or transactions.
-- Only an owner can administer the instance. Today that means turning
-  [plugins](./plugins) on and off.
+  accounts or transactions. (An owner can erase the whole instance, which
+  deletes everyone's data; see [Erasing your data](./erasing-data).)
+- Only an owner can administer the instance. That means turning
+  [plugins](./plugins) on and off, [changing other people's
+  roles](#changing-someones-role), and
+  [erasing the whole instance](./erasing-data#erase-this-entire-instance).
 
 The server checks the role on every owner-only request, so a role change takes
 effect on that person's next request, with no sign-out. Two people signing up
@@ -51,13 +54,43 @@ registration open logs a warning. See the
 
 Before 0.4.0, every account was registered as an owner, and upgrading doesn't
 change existing accounts. If several people signed up on your instance before
-then, they are all still owners. Check, and demote the ones that shouldn't be.
+then, they are all still owners. Open [Settings → People](#changing-someones-role)
+and make the ones that shouldn't be owners members.
 
-## Checking and changing roles
+## Changing someone's role
 
-There's no screen for this yet; it's on the
-[roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
-Until then, connect as the database owner (`DATABASE_OWNER_URL`) and use SQL:
+*Added in NEXT_VERSION. Before that, a role could only be changed with SQL.*
+
+**Settings → People** (`/settings#people`) is for owners; a member never sees
+it. It lists every account on the instance, oldest first, with its email, when
+it joined and a **Role** select. Nothing else about an account is shown: no
+password, no time zone, none of its data.
+
+- **Making someone an owner** takes effect as soon as you choose it. It gives
+  them the same control you have: turning plugins on and off, changing roles
+  and erasing the instance. This is the only way an instance gets a second
+  owner; registration never makes one.
+- **Making an owner a member** asks you to confirm first, because it takes
+  something away. The dialog says what is lost and what isn't: their data and
+  their sign-in are untouched, and an owner can make them an owner again. If it
+  is you, it says that only another owner can give your access back.
+- **An instance always keeps at least one owner.** The last owner can't be made
+  a member, and an owner can step down only while another owner remains. If two
+  owners step each other down at the same moment, one of the changes wins and
+  the other is refused.
+- **It applies on that account's next request**, with no sign-out. If you
+  demote yourself, or another owner demotes you while the page is open, the
+  People section is replaced by a note saying you're now a member.
+- Each change is written to the server log at `info`, with who changed whom.
+
+For the endpoints behind it (`GET /api/v1/users` and
+`PATCH /api/v1/users/:id/role`), see the
+[API reference](../api/overview#users-and-roles).
+
+### Checking and changing roles with SQL
+
+You only need this if you can't use the People screen, for instance because no
+owner can sign in. Connect as the database owner (`DATABASE_OWNER_URL`):
 
 ```sql
 -- who is an owner
@@ -72,7 +105,8 @@ WHERE role = 'owner'
   AND id <> (SELECT id FROM core.users ORDER BY created_at, id LIMIT 1);
 ```
 
-If every owner is demoted, the next account to register becomes the owner.
-That's one more reason to close registration once the accounts you need
-exist: set `REGISTRATION_ENABLED=false` (see the
+SQL isn't held to the last-owner rule. If every owner is demoted this way, the
+next account to register becomes the owner. That's one more reason to close
+registration once the accounts you need exist: set
+`REGISTRATION_ENABLED=false` (see the
 [Configuration reference](../self-hosting/configuration#auth)).
