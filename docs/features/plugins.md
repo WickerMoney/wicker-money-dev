@@ -44,7 +44,15 @@ A member sees the plugins that are on, read-only.
   when they regain focus.
 - **Turning a plugin off deletes nothing.** Its tables, rows and database role
   stay where they are, and turning it back on brings everything back. That's
-  why there's no confirmation step.
+  why turning one off doesn't ask.
+- **Turning on a third-party plugin asks first.** *Added in NEXT_VERSION.* For a
+  plugin that isn't bundled, Settings → Plugins shows a confirmation before the
+  switch goes on. It names the origin the plugin loads from and the tables it is
+  granted, and repeats that it runs in a sandboxed frame, has no server-side code
+  and can send what it reads to another server through the [known
+  gaps](#how-much-a-plugin-is-trusted). Cancel leaves it off. Bundled plugins
+  don't ask. The question is in the Settings page only: a request sent straight
+  to the API doesn't ask.
 - **Plugins in the same area can be on together**, such as two budgeting
   approaches.
 - Opening a page from a plugin that's off shows "*Name* is turned off"
@@ -95,6 +103,11 @@ was checked for the last item only; Firefox and Safari have not been tested):
   navigation carried a `SameSite=Strict` cookie. Don't assume either result for
   another browser.
 
+NEXT_VERSION recorded a test of the obvious fixes: in Chromium 141, no
+`Permissions-Policy` header, iframe `allow` value, cross-origin policy header or
+CSP directive that browser implements closes prerender or WebRTC, so both stay
+open.
+
 A malicious plugin can therefore cause some requests and read nothing back, and
 **a plugin granted your transactions can send them to another server through
 these gaps.** They are known limitations, documented in the project's
@@ -121,7 +134,9 @@ for the operator to do it by hand:
 2. Copy its manifest, with an `integrity` map of Subresource Integrity values
    for every file of the build, into the directory named by
    `PLUGIN_MANIFEST_DIR`, and restart the API.
-3. Switch the plugin on as an owner in Settings → Plugins. It starts off.
+3. Switch the plugin on as an owner in Settings → Plugins. It starts off, and
+   from NEXT_VERSION the app asks you to confirm first (see [Turning a plugin on
+   or off](#turning-a-plugin-on-or-off)).
 
 A third-party plugin gets no server-side code, no storage and no scheduled work,
 and can read only the read-only aggregates for the tables its manifest lists.

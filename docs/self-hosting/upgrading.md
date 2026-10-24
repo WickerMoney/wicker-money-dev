@@ -48,6 +48,34 @@ owner role.
 
 ## Version notes
 
+### 0.6.0 → NEXT_VERSION \{#from-0-6-0}
+
+- **Back up first**, as for any upgrade. One migration, **033**
+  (`tenant_lookup_policies`), runs before the app starts; the sample compose
+  file's `migrate` service does it. It rewrites any row-level security policy
+  that still calls `core.current_user_id()` bare to `(SELECT
+  core.current_user_id())`, so the lookup runs once per statement, not once per
+  row. A database migrated in order has one such policy,
+  `account_lines_isolation` on the Budgets account allowances. The rewritten
+  policy returns the same rows, so no access changes. Where nothing is left to
+  rewrite, the migration does nothing and takes no lock.
+- **Going back to 0.6.0:** run `node dist/db/cli.js down` once with the new
+  image, then start the 0.6.0 image. The `down` changes nothing in your data
+  (there is no behaviour to take back); it only removes the migration's record,
+  so the database's migration history matches the older image's.
+- **An owner is asked before a third-party plugin is switched on.** Settings →
+  Plugins shows a confirmation naming the plugin's origin and the tables it is
+  granted. Bundled plugins, and switching a plugin off, don't ask. See
+  [Turning a plugin on or off](../features/plugins#turning-a-plugin-on-or-off).
+- **The Transactions table fits narrower windows.** From the phone layout up the
+  date doesn't wrap, the Edit and Delete buttons stay in view, and neither the
+  table nor the page scrolls sideways. Every column is still there.
+- **The `Origin-Agent-Cluster` console warning is gone.** The API no longer sends
+  that header. Nothing about the plugin sandbox changes.
+- **For API clients:** additive only. `GET /api/v1/plugins/registry` (owner only)
+  now returns `origin` and `tables` on each plugin. See
+  [the API reference](../api/overview#plugins).
+
 ### 0.5.0 → 0.6.0 \{#from-0-5-0}
 
 - **Back up first.** Four migrations, **029 to 032**, all with a `down`. The
