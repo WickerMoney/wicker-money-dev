@@ -81,6 +81,17 @@ What this does and doesn't change:
   keep a plugin's widgets few and its bundle small. Don't import the SDK root
   in frame code: it carries the Zod manifest schemas (about 85 kB). Import
   from `/runtime`, `/money` and `/date`.
+- **Don't eval, and don't let zod try.** The frame's Content Security Policy has
+  no `'unsafe-eval'`, so `eval` and `new Function` are refused, and the browser
+  logs each refusal as a violation (DevTools Issues shows "blocks the use of
+  `eval`"). zod 4 makes a `new Function("")` check when it builds its first
+  object schema. The frame turns that off (`z.config({ jitless: true })`) before
+  it loads your plugin, and zod 4.4 and later keeps the setting on `globalThis`,
+  so a plugin that bundles its own copy of 4.4 or later follows it. An older
+  copy keeps its own setting and logs one violation per frame; nothing breaks,
+  because zod falls back to its ordinary parser. Update zod, or call
+  `z.config({ jitless: true })` before you build your first schema. Never add
+  `'unsafe-eval'` to get past it: the policy is fixed by the host.
 - **Keep overlays inside the frame.** The protocol has no host-drawn overlay or
   dialog, and a frame can't draw outside its own rectangle, so tooltips and
   menus must fit inside it. The host owns the frame's width and clamps the
