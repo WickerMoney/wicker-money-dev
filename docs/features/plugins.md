@@ -45,7 +45,7 @@ A member sees the plugins that are on, read-only.
 - **Turning a plugin off deletes nothing.** Its tables, rows and database role
   stay where they are, and turning it back on brings everything back. That's
   why turning one off doesn't ask.
-- **Turning on a third-party plugin asks first.** *Added in NEXT_VERSION.* For a
+- **Turning on a third-party plugin asks first.** *Added in 0.6.1.* For a
   plugin that isn't bundled, Settings → Plugins shows a confirmation before the
   switch goes on. It names the origin the plugin loads from and the tables it is
   granted, and repeats that it runs in a sandboxed frame, has no server-side code
@@ -103,7 +103,7 @@ was checked for the last item only; Firefox and Safari have not been tested):
   navigation carried a `SameSite=Strict` cookie. Don't assume either result for
   another browser.
 
-NEXT_VERSION recorded a test of the obvious fixes: in Chromium 141, no
+The 0.6.1 release recorded a test of the obvious fixes: in Chromium 141, no
 `Permissions-Policy` header, iframe `allow` value, cross-origin policy header or
 CSP directive that browser implements closes prerender or WebRTC, so both stay
 open.
@@ -135,7 +135,7 @@ for the operator to do it by hand:
    for every file of the build, into the directory named by
    `PLUGIN_MANIFEST_DIR`, and restart the API.
 3. Switch the plugin on as an owner in Settings → Plugins. It starts off, and
-   from NEXT_VERSION the app asks you to confirm first (see [Turning a plugin on
+   from 0.6.1 the app asks you to confirm first (see [Turning a plugin on
    or off](#turning-a-plugin-on-or-off)).
 
 A third-party plugin gets no server-side code, no storage and no scheduled work,

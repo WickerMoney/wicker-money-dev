@@ -48,7 +48,7 @@ owner role.
 
 ## Version notes
 
-### 0.6.0 → NEXT_VERSION \{#from-0-6-0}
+### 0.6.0 → 0.6.1 \{#from-0-6-0}
 
 - **Back up first**, as for any upgrade. One migration, **033**
   (`tenant_lookup_policies`), runs before the app starts; the sample compose
