@@ -72,6 +72,11 @@ owner role.
   table nor the page scrolls sideways. Every column is still there.
 - **The `Origin-Agent-Cluster` console warning is gone.** The API no longer sends
   that header. Nothing about the plugin sandbox changes.
+- **Chrome DevTools no longer lists a "blocks the use of `eval`" issue for the
+  plugin frame.** The zod library probes for `eval` support when it builds its
+  first schema, the frame's policy refuses it, and zod falls back, so nothing was
+  broken, only noisy. The frame now turns the probe off. The policy is unchanged:
+  `'unsafe-eval'` was not added, and the frame still refuses `eval`.
 - **For API clients:** additive only. `GET /api/v1/plugins/registry` (owner only)
   now returns `origin` and `tables` on each plugin. See
   [the API reference](../api/overview#plugins).
