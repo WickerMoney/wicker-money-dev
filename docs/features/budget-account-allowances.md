@@ -5,7 +5,8 @@ description: Budget account allowances, a monthly amount measured against one ch
 
 # Budget account allowances
 
-A category line answers "how much have I spent on groceries". An **account
+A category line (see [Monthly budgets](./monthly-budgets)) answers "how much have
+I spent on groceries". An **account
 allowance** answers a different question: "I put $150 a month into this
 checking account to spend on whatever, how much of it is left?" It is the
 envelope idea, measured against an account rather than a category.

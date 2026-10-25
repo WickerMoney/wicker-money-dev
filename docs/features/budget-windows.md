@@ -6,7 +6,7 @@ description: Budget windows, one amount for one category across a date range, an
 # Budget windows
 
 The Budgets page (bundled plugin `wickermoney.budgets`) plans one line per
-category **per calendar month**. A **window** is the exception: one amount for
+category **per calendar month** (see [Monthly budgets](./monthly-budgets)). A **window** is the exception: one amount for
 one category across a date range, spent down to zero. Holiday gifts are the
 typical case: the money lands on October 1 and is spent until December 25, and
 what you want to see is "spent so far, and what's left", not a new amount every
