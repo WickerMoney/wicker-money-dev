@@ -76,13 +76,33 @@ That's deliberately pessimistic. Confirming the match fixes it.
 
 ## From the Transactions page
 
-The Transactions page has a **Recurring** column. For each transaction it
-shows one of:
+*Added in 0.3.0; rearranged in NEXT_VERSION.* The Transactions page has a **Recurring**
+column and, first among each row's buttons, a **Link** button.
 
-- the occurrence it paid, with **Unmatch**;
-- a suggested occurrence, with **Match** and **Not this**;
-- **Other**, to pick an occurrence yourself from the ones the transaction
-  could settle, best first.
+- **The column is quiet.** A row that settles an occurrence shows that recurring
+  item as a pill with an **Unmatch** button on it, then the occurrence's date,
+  only when that isn't the transaction's own date. A row that settles nothing
+  shows nothing there, even when something is suggested.
+- **The Link button opens the choices** in a list directly under the row. It
+  turns the accent colour and shows a dot when an item is suggested. The list
+  has:
+  - the **suggestion**, if there is one, with **Match** and **Not this**;
+  - **It could be** (**Other items it could be** when there is a suggestion),
+    with **Match** on each;
+  - **Dismissed for this transaction**, with **Restore** on each, to make a
+    dismissed suggestion eligible again;
+  - **Close**.
+
+  If nothing within 10 days of the transaction's date expects it, the list says
+  so. A transaction that already settles an occurrence shows only that item
+  with **Unmatch**, because the API offers nothing else until it is unmatched.
+- **Focus.** Opening the list moves focus into it, so Tab continues through the
+  choices and not on to the next row. **Match**, **Close** and Escape close it
+  and put focus back on the Link button. **Not this**, **Restore** and **Unmatch**
+  keep it open with fresh data, with focus on its first control.
+- **Each action says what it did** in a [notification](./notifications), for
+  example "Matched 'Paycheck' to Salary." It has no Undo; **Unmatch** and
+  **Restore** are the ways back.
 
 The column costs one request per page of transactions, not one per row.
 
@@ -92,9 +112,10 @@ The column costs one request per page of transactions, not one per row.
 transaction-and-occurrence pair is never suggested again. The same
 transaction can still be suggested for a different occurrence.
 
-- **Undo** brings a dismissed suggestion back. On the Recurring page,
-  dismissed suggestions are listed under **Did these land?** with an Undo
-  button each.
+- **Restore** (Transactions) or **Undo** (Recurring) brings a dismissed
+  suggestion back. On the Recurring page, dismissed suggestions are listed under
+  **Did these land?** with an Undo button each; on Transactions they are in the
+  Link list under **Dismissed for this transaction**.
 - Matching a dismissed pair by hand clears the dismissal.
 - Dismissing one row of a transfer dismisses its partner row too.
 - A dismissal is kept against the item and the occurrence's scheduled date,

@@ -57,6 +57,14 @@ removing a login yet.
 It runs as a single transaction: a failure part-way leaves everything as it was.
 Running it again with nothing left deletes nothing and succeeds.
 
+*Fixed in NEXT_VERSION: a write that was already open when the erase started.* The erase
+first locks your account row and waits for writes that are open, so a
+transaction being saved at that moment can no longer slip in afterwards and
+leave a row (or, for a row pointing at an account, fail the erase with a server
+error). One narrow case remains: a request that had already passed its session
+check and writes after the erase finished can still leave one row. Erase again
+and it is removed.
+
 ## Erase this entire instance
 
 For an owner. It deletes every account and everyone's data, in every plugin, and

@@ -12,13 +12,6 @@ widgets leave the dashboard. Turn it back on and they return.
 
 *Added in 0.1.0.*
 
-{/* Release prep (0.7.0): two things on this page change. (1) Lazy plugin frames
-(P2, feat(web)): in v0.6.1 Insights and Spending Trends each load in a sandboxed
-frame as soon as the dashboard opens. In 0.7.0 frames below the fold are created as
-they approach the viewport, so describe that under "Cards that run in a frame".
-(2) Notifications and toasts: this page does not mention any today. Re-check the
-list of widgets against the 0.7.0 bundled manifests before the tag. */}
-
 ## The time range
 
 One control at the top right sets the period for the whole dashboard:
@@ -141,10 +134,34 @@ or "No spending in this range". Widen the range to look further back.
 
 ## Cards that run in a frame
 
-Where a card's code runs depends on its plugin. Insights (Money in and out, Where
-it went) and Spending Trends run in a sandboxed frame; the others run in the app's
-own page. You don't have to do anything about it: both sit in the same card on the
-grid. The sandbox is covered on [Plugins](./plugins#how-much-a-plugin-is-trusted).
+Where a card's code runs depends on its plugin. Since NEXT_VERSION every card except
+Budget breakdown runs in a sandboxed frame: Until payday (Upcoming), Money in
+and out and Where it went (Insights), Spending trends and Debt-free date (Debt
+payoff). Budget breakdown, from Budgets, still runs in the app's own page. You
+don't have to do anything about it: both kinds sit in the same card on the grid.
+The sandbox is covered on [Plugins](./plugins#how-much-a-plugin-is-trusted).
+
+**Frames start when you scroll to them.** *Added in NEXT_VERSION.* A card that runs in a
+frame doesn't load its frame until the card is within about 600 pixels of the
+window. Until then it holds a placeholder about the widget's height, so the page
+doesn't jump when the frame arrives. The cards in the first screen start as the
+page loads, a card you have scrolled past stays loaded, and a browser that can't
+tell when a card is near (no `IntersectionObserver`) loads them all at load, as
+before. Two things to know:
+
+- **Find in page and printing only see cards that have started.** Text in a card
+  that is still a placeholder isn't found, and a print preview of a dashboard you
+  haven't scrolled shows placeholders for those cards. Scroll to the bottom
+  first, or use a tall window, when you need either.
+- **A hidden tab doesn't fail a card.** The "plugin did not start in time" timer
+  starts when the frame is created and stops while the tab is hidden, so a
+  dashboard left in the background doesn't report a widget as broken.
+
+On the maintainer's seeded dashboard (Chromium, one machine) the gain was small:
+the first screen came up about 225 ms sooner on a desktop window and about 320 ms
+sooner on a phone, and the browser held 3 MiB (desktop) to 18 MiB (phone) less
+memory at load, until you scroll. It pays
+more as a dashboard gains frame cards than fit on a screen.
 
 ## What it doesn't do
 

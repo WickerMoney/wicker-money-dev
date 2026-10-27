@@ -14,11 +14,6 @@ set aside to spend from one checking account is an
 
 *Added in 0.1.0.*
 
-{/* Release prep (0.7.0): the Budgets page still runs in the app's own page in
-v0.6.1. Nothing on this page is expected to change with the 0.7.0 changes
-(lazy plugin frames only affect Insights and Spending Trends). Re-check it
-against the 0.7.0 CHANGELOG before the tag. */}
-
 ## One row per category per month
 
 A budget isn't a template that you keep editing. Each month has its own row for
