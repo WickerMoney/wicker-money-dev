@@ -89,7 +89,7 @@ A plugin's UI runs in one of two places, decided by the API
 (`pluginRuntimeFor`): the app's own page, or a sandboxed frame. Only a bundled
 plugin on a short host-internal list can run in the page. Insights, Spending
 Trends, Upcoming, Forecast and Debt payoff are not on it (the last three moved
-off it in NEXT_VERSION); Budgets and Import CSV are, and run **fully trusted, in the
+off it in 0.7.0); Budgets and Import CSV are, and run **fully trusted, in the
 host's origin**, sharing the page, its memory and the signed-in user's session.
 For them the scoped client, the `x-wickermoney-plugin` header and the manifest
 check in `ctx.api` catch mistakes early; they are not a security boundary.
@@ -110,7 +110,7 @@ the table is denied, and a test fails when one is. A frame costs time and
 memory: roughly 6 to 9 MiB and 150 ms per frame after the first, and a first
 frame starts its own renderer process.
 
-*Added in NEXT_VERSION.* A frame can be a widget or a whole page. Forecast and Debt
+*Added in 0.7.0.* A frame can be a widget or a whole page. Forecast and Debt
 payoff are the first page frames: the frame is as tall as its content (the host
 clamps a page to 240 to 20,000 px and a widget to 96 to 800 px), the window
 scrolls, and the page title, the one `main` landmark and the skip link stay the

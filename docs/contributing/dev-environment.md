@@ -52,7 +52,7 @@ pnpm test
 
 ## The dev server and plugin frames
 
-*Changed in NEXT_VERSION.* Most of the bundled plugins run in sandboxed frames
+*Changed in 0.7.0.* Most of the bundled plugins run in sandboxed frames
 (Insights, Spending Trends, Upcoming, Forecast and Debt payoff; Budgets and
 Import CSV still run in the app's own page). A frame is a separate document that
 the **API** serves with its own content security policy and sandbox, not

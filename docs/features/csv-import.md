@@ -166,7 +166,7 @@ can be undone once.
   turns, so the second sees what the first wrote. Imports into other accounts, by
   you or by other people on the instance, run alongside, each holding a database
   connection for its commit.
-- **A few imports at a time across the instance.** *Added in NEXT_VERSION.* One API
+- **A few imports at a time across the instance.** *Added in 0.7.0.* One API
   process commits at most `IMPORT_MAX_CONCURRENT` imports at once (by default,
   half of its database pool). Another commit waits its turn without holding a
   connection, so the rest of the app keeps working while large files are
@@ -176,7 +176,7 @@ can be undone once.
   the button again: the second attempt imports the file once. One person
   importing alone never waits. See
   [Concurrent imports](../self-hosting/configuration#concurrent-imports).
-- **A request limit.** *Added in NEXT_VERSION.* Each person may make 30 import requests
+- **A request limit.** *Added in 0.7.0.* Each person may make 30 import requests
   a minute (an analysis, or one more page of rows to review, counts as one;
   so does a commit). Past that the page shows the message and says how many
   seconds to wait. See

@@ -76,7 +76,7 @@ That's deliberately pessimistic. Confirming the match fixes it.
 
 ## From the Transactions page
 
-*Added in 0.3.0; rearranged in NEXT_VERSION.* The Transactions page has a **Recurring**
+*Added in 0.3.0; rearranged in 0.7.0.* The Transactions page has a **Recurring**
 column and, first among each row's buttons, a **Link** button.
 
 - **The column is quiet.** A row that settles an occurrence shows that recurring

@@ -57,7 +57,7 @@ removing a login yet.
 It runs as a single transaction: a failure part-way leaves everything as it was.
 Running it again with nothing left deletes nothing and succeeds.
 
-*Fixed in NEXT_VERSION: a write that was already open when the erase started.* The erase
+*Fixed in 0.7.0: a write that was already open when the erase started.* The erase
 first locks your account row and waits for writes that are open, so a
 transaction being saved at that moment can no longer slip in afterwards and
 leave a row (or, for a row pointing at an account, fail the erase with a server

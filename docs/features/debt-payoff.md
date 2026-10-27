@@ -15,7 +15,7 @@ shows up as **Debt payoff** in the main navigation and as a **Debt-free date**
 widget on the dashboard. Like every plugin, an owner can turn it off from
 [Settings → Plugins](./plugins); its debts are kept while it's off.
 
-*Since NEXT_VERSION it runs in a sandboxed frame,* as do the Forecast page and the
+*Since 0.7.0 it runs in a sandboxed frame,* as do the Forecast page and the
 Until payday widget, and no longer in the app's own page. It looks and behaves
 as before: the add, edit and remove dialogs still open as a side drawer or a
 phone sheet over the page, the page behind stays where it was, Tab stays in the
@@ -70,7 +70,7 @@ agree. To pay extra toward one particular debt, set it on that debt.
 
 ## Leaving a debt out of the plan
 
-*Added in NEXT_VERSION.* Each debt in the list has an **In plan** checkbox, saved the moment
+*Added in 0.7.0.* Each debt in the list has an **In plan** checkbox, saved the moment
 you change it, like *Safe to spend* on Accounts. Switch it off for a debt that
 would swamp the rest, such as a mortgage that holds the debt-free date decades
 out.
@@ -88,7 +88,7 @@ out.
 
 ## An extra amount for one debt
 
-*Added in NEXT_VERSION.* A debt can have its own monthly extra, set in **Extra each month
+*Added in 0.7.0.* A debt can have its own monthly extra, set in **Extra each month
 toward this debt** and shown in the list when it isn't zero.
 
 - It is paid after the minimums and before the shared extra is spread by your
@@ -111,7 +111,7 @@ exactly the plan it got before.
 
 ## Loans, promotions and compounding
 
-*Added in NEXT_VERSION.* The **Timing and interest (optional)** section of the debt form
+*Added in 0.7.0.* The **Timing and interest (optional)** section of the debt form
 opens by itself when a debt already uses it.
 
 **A loan in deferment.** Enter **Repayment starts on**: the first day you must

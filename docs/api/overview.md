@@ -66,7 +66,7 @@ person and can change between releases (0.4.0 reworded many of them).
   and `409` for a conflict, with a `code` naming it.
 - `429 rate_limited` when a user (or, for a request with no valid token, a
   client address) is over the API rate limit, with a `Retry-After` header in
-  seconds. *Added in NEXT_VERSION, on by default.* The limits and the way to
+  seconds. *Added in 0.7.0, on by default.* The limits and the way to
   raise or switch them off are on [API rate limit](../self-hosting/configuration#api-rate-limit).
   The sign-in routes and the password-confirmed actions also answer `429`, with
   their own counters.
@@ -349,7 +349,7 @@ unaffected.
 ## Debt payoff
 
 The debt payoff plugin's routes, under `/api/v1/p/wickermoney.debt-payoff`.
-*Added in 0.6.0; per-debt fields added in NEXT_VERSION.* See
+*Added in 0.6.0; per-debt fields added in 0.7.0.* See
 [Debt payoff](../features/debt-payoff) for what the plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
 at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
 24.99%. Unknown fields in a body are refused rather than ignored.
@@ -366,7 +366,7 @@ at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
 | `GET /plan?strategy&extra&tz` | The payoff plan. A parameter left out comes from the saved settings, and `tz` (an IANA zone, deciding what today is) defaults to `UTC`. Asking for a different strategy doesn't change the saved one |
 | `GET /account-suggestions` | `{ accounts }`: the person's loan and credit card accounts that aren't archived, each with the `debtId` already tracking it or `null` |
 
-*Added in NEXT_VERSION.* A debt has these further fields. Each is optional on
+*Added in 0.7.0.* A debt has these further fields. Each is optional on
 create and on update, and leaving all of them out gives the plan a debt had
 before they existed:
 
@@ -414,7 +414,7 @@ read) is refused with `400 too_many_rows` before anything is written. See
 [Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit).
 Both routes run under the longer `DB_LONG_STATEMENT_TIMEOUT`.
 
-*Added in NEXT_VERSION.* A process commits at most `IMPORT_MAX_CONCURRENT` imports
+*Added in 0.7.0.* A process commits at most `IMPORT_MAX_CONCURRENT` imports
 at once. A `commit` over that limit waits for its turn and, after
 `IMPORT_QUEUE_WAIT_SECONDS`, is refused with `503 import_busy`, a message that
 says nothing was imported, and a `Retry-After` header in seconds. Send the same

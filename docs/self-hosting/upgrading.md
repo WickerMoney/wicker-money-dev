@@ -48,7 +48,7 @@ owner role.
 
 ## Version notes
 
-### 0.6.1 → NEXT_VERSION \{#from-0-6-1}
+### 0.6.1 → 0.7.0 \{#from-0-6-1}
 
 - **Back up first.** Two migrations, **034** and **035**, both on the Debt
   payoff plugin's `debts` table and both with a `down`. The sample compose

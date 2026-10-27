@@ -75,7 +75,7 @@ password, no time zone, none of its data.
   their sign-in are untouched, and an owner can make them an owner again. If it
   is you, it says that only another owner can give your access back.
 - **A role change says what it did** in a [notification](./notifications), which
-  stays until you close it. Before NEXT_VERSION a line under the table announced it.
+  stays until you close it. Before 0.7.0 a line under the table announced it.
 - **An instance always keeps at least one owner.** The last owner can't be made
   a member, and an owner can step down only while another owner remains. If two
   owners step each other down at the same moment, one of the changes wins and

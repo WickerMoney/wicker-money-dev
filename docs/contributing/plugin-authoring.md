@@ -12,7 +12,7 @@ remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
-plugin code from 0.3.0 to NEXT_VERSION.
+plugin code from 0.3.0 to 0.7.0.
 
 ## Stability tiers
 
@@ -97,7 +97,7 @@ What this does and doesn't change:
   fit inside it. The host owns the frame's width and clamps the height you
   report (widgets at most 800 px, pages 240 to 20,000 px). A widget that needs a
   dialog should `navigate` to a page.
-- **A page's modal dialog works.** *Added in NEXT_VERSION.* A page frame is as tall as
+- **A page's modal dialog works.** *Added in 0.7.0.* A page frame is as tall as
   its content, so a `position: fixed` element in it is placed against the frame,
   not the window. While a native `<dialog>` opened with `showModal()` is open in
   a page, the frame sends the additive protocol message `modal` and the host
@@ -107,12 +107,12 @@ What this does and doesn't change:
   hand-made fixed overlay. A widget's `modal` is ignored. A host that predates
   the messages ignores them and the dialog is placed against the frame, as it
   was.
-- **A `<form>` works.** *Added in NEXT_VERSION.* The frame's sandbox has no
+- **A `<form>` works.** *Added in 0.7.0.* The frame's sandbox has no
   `allow-forms`, so the browser blocks every form submission before the `submit`
   event fires. The frame runtime dispatches `submit` itself on a click on a
   submit button or Enter in a field, after checking the form's constraints, so a
   React `onSubmit` handler works unchanged. Nothing is navigated.
-- **Frames start when they scroll into view.** *Changed in NEXT_VERSION.* A widget's
+- **Frames start when they scroll into view.** *Changed in 0.7.0.* A widget's
   iframe is not created until its card is within 600 px of the viewport, and a
   browser without `IntersectionObserver` starts every frame at load. Find in page
   and printing see only frames that have started. The 15 second "did not start"
@@ -395,7 +395,7 @@ most mistakes never make a round trip. The server still checks everything.
 
 ## Toasts, row detail and the link icon (ui-kit)
 
-*Added in NEXT_VERSION. Experimental.* Three additions to `@wickermoney/ui-kit`. None of them
+*Added in 0.7.0. Experimental.* Three additions to `@wickermoney/ui-kit`. None of them
 removes or changes anything that was there.
 
 ### `ToastProvider`, `ToastViewport` and `useToast`

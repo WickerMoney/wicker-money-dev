@@ -91,7 +91,7 @@ refuses everything else, including sign-in, the data export, the erase actions,
 plugin management and other plugins' routes. A hostile-plugin test suite
 attempts about 140 escapes, in Chromium, on every pull request.
 
-*Changed in NEXT_VERSION.* Upcoming (the Until payday widget), Forecast (a whole
+*Changed in 0.7.0.* Upcoming (the Until payday widget), Forecast (a whole
 page) and Debt payoff (a page and a widget) moved into frames, so they now reach
 data only through the app, with only their own grants. Forecast and Upcoming
 hold read grants on `recurring_items` and `accounts`; Debt payoff reads

@@ -30,12 +30,12 @@ without them.
 | `DB_STATEMENT_TIMEOUT` | `30000` | *0.6.0 and later.* Longest one SQL statement may run, in **milliseconds** (1000 to 3600000). |
 | `DB_LONG_STATEMENT_TIMEOUT` | `300000` | *0.6.0 and later.* The same limit, in milliseconds, for CSV import and the data export. Not lower than `DB_STATEMENT_TIMEOUT`. |
 | `IMPORT_MAX_ROWS` | `100000` | *0.6.0 and later.* The most data rows one CSV import may contain, 1 to 1000000. |
-| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX` | *NEXT_VERSION and later.* CSV imports one API process commits at once, 1 to 1000; the others wait their turn. Blank or unset means half the pool, at least 1. |
-| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | *NEXT_VERSION and later.* The longest, in **seconds** (0 to 600), an import waits for its turn before it is refused with `503 import_busy`. |
+| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX` | *0.7.0 and later.* CSV imports one API process commits at once, 1 to 1000; the others wait their turn. Blank or unset means half the pool, at least 1. |
+| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | *0.7.0 and later.* The longest, in **seconds** (0 to 600), an import waits for its turn before it is refused with `503 import_busy`. |
 
 ## Pool, statement timeouts and the import limit
 
-*Added in 0.6.0; the last two settings in the table, in NEXT_VERSION.* Six settings
+*Added in 0.6.0; the last two settings in the table, in 0.7.0.* Six settings
 bound how much database work one API process does. Each is read at start-up and checked: a value outside its range
 stops the API with a configuration error that names the variable, rather than
 being clamped.
@@ -46,8 +46,8 @@ being clamped.
 | `DB_STATEMENT_TIMEOUT` | `30000` | 1000 to 3600000 | Longest one SQL statement may run, in **milliseconds**. A statement over the limit is cancelled and the request fails with the generic error; the cause is in the log. The floor of 1000 is deliberate: `30`, meant as seconds, is refused rather than cancelling nearly every query. |
 | `DB_LONG_STATEMENT_TIMEOUT` | `300000` | 1000 to 3600000 | The same limit for the routes that legitimately run longer: CSV import (including waiting its turn behind another import into the same account) and the data export. It is set inside those routes' transactions, so it ends with them; every other route keeps `DB_STATEMENT_TIMEOUT`. It must not be lower than `DB_STATEMENT_TIMEOUT`. |
 | `IMPORT_MAX_ROWS` | `100000` | 1 to 1000000 | The most data rows one CSV import may contain, counting rows that can't be read. A larger file is refused with `400 too_many_rows` and a message that names the limit, before anything is written. |
-| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX`, at least 1 | 1 to 1000 | *NEXT_VERSION and later.* CSV imports this API process commits at once. Blank or unset uses the default. A value at or above `DB_POOL_MAX` has no effect, because the pool then limits imports first. See [Concurrent imports](#concurrent-imports). |
-| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | 0 to 600 | *NEXT_VERSION and later.* The longest an import waits for its turn, in **seconds**, before it is refused with `503 import_busy` and a `Retry-After` header. `0` refuses at once when every slot is busy. |
+| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX`, at least 1 | 1 to 1000 | *0.7.0 and later.* CSV imports this API process commits at once. Blank or unset uses the default. A value at or above `DB_POOL_MAX` has no effect, because the pool then limits imports first. See [Concurrent imports](#concurrent-imports). |
+| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | 0 to 600 | *0.7.0 and later.* The longest an import waits for its turn, in **seconds**, before it is refused with `503 import_busy` and a `Retry-After` header. `0` refuses at once when every slot is busy. |
 
 The 8 MB limit on the CSV file itself applies as well and isn't configurable.
 Before this release the row cap was a fixed 50,000.
@@ -76,8 +76,8 @@ proxy's timeout.
 
 ### Concurrent imports
 
-*Added in NEXT_VERSION.* A commit holds one pooled database connection for its whole
-length, so before NEXT_VERSION a few large files at once could take every connection.
+*Added in 0.7.0.* A commit holds one pooled database connection for its whole
+length, so before 0.7.0 a few large files at once could take every connection.
 On the maintainer's two-vCPU test machine, ten people committing 50,000 rows at
 the same moment held all ten connections of a pool of 10 for about 50 seconds,
 and 319 of 402 other requests made in that time failed waiting for a
@@ -182,9 +182,9 @@ Rate limit counters live in memory — per API process, reset on restart.
 
 ## API rate limit
 
-*Added in NEXT_VERSION. On by default.* Every request to `/api/v1` counts against a
+*Added in 0.7.0. On by default.* Every request to `/api/v1` counts against a
 per-user limit, so one client in a loop (a script, a runaway tab, a stolen
-token) cannot use up the whole API process. Before NEXT_VERSION only the sign-in routes
+token) cannot use up the whole API process. Before 0.7.0 only the sign-in routes
 and the password-confirmed actions had limits.
 
 | Variable | Default | Notes |

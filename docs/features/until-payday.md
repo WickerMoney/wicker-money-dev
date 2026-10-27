@@ -10,7 +10,7 @@ it to payday?* It comes from the bundled plugin `wickermoney.upcoming`
 (`plugins/upcoming`), which is read-only and holds the `recurring_items` and
 `accounts` grants and nothing else.
 
-*Added in 0.2.0. Since NEXT_VERSION the widget runs in a sandboxed frame:* it reads through the
+*Added in 0.2.0. Since 0.7.0 the widget runs in a sandboxed frame:* it reads through the
 app with only its two read grants, and its list of upcoming items scrolls inside
 the widget. It looks and behaves as before, and, like any widget in a frame,
 it loads when its card nears the screen (see [The

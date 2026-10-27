@@ -10,7 +10,7 @@ Settings, the page says what happened in a **notification** at the top of the
 page: "Deleted 'Coffee' (-$4.50)." rather than a line that fades or a bare
 "Done".
 
-*Added in NEXT_VERSION.*
+*Added in 0.7.0.*
 
 ## How they behave
 
