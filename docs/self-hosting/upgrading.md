@@ -48,6 +48,90 @@ owner role.
 
 ## Version notes
 
+### 0.6.1 → NEXT_VERSION \{#from-0-6-1}
+
+- **Back up first.** Two migrations, **034** and **035**, both on the Debt
+  payoff plugin's `debts` table and both with a `down`. The sample compose
+  file's `migrate` service runs them before the app starts.
+  - **034** (`debt_payoff_plan_controls`) adds `included boolean not null
+    default true` and `extra_payment numeric(19,4) not null default 0` (never
+    negative). Every existing debt stays in the plan with no extra amount, so
+    nothing changes until someone uses them.
+  - **035** (`debt_payoff_timelines`) adds six columns: `repayment_starts_on`,
+    `promo_apr` and `promo_ends_on` (all optional; the last two are set
+    together), `promo_deferred_interest`, `promo_interest_base` and
+    `compounding`. Each has a default that keeps today's behaviour, and checks
+    refuse a half-set promotion, deferred interest without one, and unknown
+    options.
+- **Going back to 0.6.1:** run `node dist/db/cli.js down` **twice** with the new
+  image (each run reverts the newest migration, 035 and then 034), then start the
+  0.6.1 image. The two `down`s drop the columns above, so **any "In plan"
+  switch, extra amount, repayment start date, promotional rate or interest option
+  anyone set is discarded**; the debts themselves are kept. Restore the backup
+  instead if you want those settings back.
+- **The API now has a per-user rate limit, on by default.** Each signed-in user
+  may make 600 requests a minute to `/api/v1`, 30 CSV import requests and 5 data
+  exports. People using the app will not meet it, but **a script that calls the
+  API in a loop (a sync, a poller) may now get `429 rate_limited`**. Raise
+  `API_RATE_LIMIT_MAX`, `API_RATE_LIMIT_IMPORT_MAX` and
+  `API_RATE_LIMIT_EXPORT_MAX`, or set `API_RATE_LIMIT_ENABLED=false` to turn the
+  limit off. See [API rate limit](./configuration#api-rate-limit).
+- **CSV imports are limited to run a few at a time.** A process commits at most
+  `IMPORT_MAX_CONCURRENT` imports at once (default: half of `DB_POOL_MAX`).
+  Another import waits for its turn without holding a database connection, for up
+  to `IMPORT_QUEUE_WAIT_SECONDS` (default 30), and is then refused with
+  `503 import_busy`; nothing is imported and sending the same file again imports
+  it once. One person importing alone is not slowed. See
+  [Concurrent imports](./configuration#concurrent-imports).
+- **Three more plugins run in a sandboxed frame.** The Until payday widget
+  (Upcoming), the Forecast page and the Debt payoff page and widget now run in a
+  frame, as Insights and Spending Trends did in 0.6.0. They read through the
+  app with only their own grants. They look and behave as before. Only Budgets
+  and Import CSV still run in the app's own page, fully trusted. A frame costs
+  some time and memory, and a widget's frame now starts only when its card is
+  near the screen (see below). See
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+- **Dashboard widgets in frames start when you scroll to them.** A card that is
+  more than 600 px below the window holds a placeholder until you scroll near
+  it; frames in the first screen start at load, as before. Find in page and
+  printing see only the frames that have started, so scroll to the bottom first
+  if you need either. See [The dashboard](../features/dashboard#cards-that-run-in-a-frame).
+- **Actions say what they did in a notification.** On Transactions, Recurring,
+  Accounts, Categories and Settings, a result such as "Deleted 'Coffee'
+  (-$4.50)." appears as a notification at the top of the page. It has no Undo
+  and does not close itself; see [Notifications](../features/notifications).
+- **The Transactions recurring column is quieter.** A matched row shows the
+  recurring item as a pill with an *Unmatch* button; the choosing, suggestions
+  and dismissals moved into a list that the row's **Link** button opens. See
+  [Matching](../features/matching#from-the-transactions-page).
+- **Debt payoff does more.** Each debt can be left out of the plan, can have its
+  own monthly extra, can be a loan in deferment, can have a promotional rate
+  (with deferred interest if you want that modelled), and can be compounded
+  daily or charged simple daily interest. A debt that uses none of this gets the
+  plan it got before. See [Debt payoff](../features/debt-payoff).
+- **Fixed:** a primary button no longer turns light grey under its light text on
+  hover; on a phone, text buttons in the Transactions recurring column no longer
+  overlap their neighbours; and **Erase my data** no longer misses a write that
+  was open when the erase started. One narrow case remains: a request that had
+  already passed its session check and writes after the erase can still leave a
+  row, which the next erase removes.
+- **For developers:** `pnpm dev` now proxies the plugin frame to the API, which
+  needs a built web app and `WEB_DIST_DIR` set; see
+  [Setting up a dev environment](../contributing/dev-environment#the-dev-server-and-plugin-frames).
+  On Windows, a bundled plugin's `dev` script no longer fails with `EPERM`.
+- **For API clients:** additive, apart from the rate limit and the import
+  refusal above. The Debt payoff routes accept and return new fields, and
+  `GET /plan` also returns `excludedDebts`; see
+  [Debt payoff](../api/overview#debt-payoff). A request over a limit is
+  `429 rate_limited` with `Retry-After`; an import that waited too long is
+  `503 import_busy` with `Retry-After`.
+- **For plugin authors:** `@wickermoney/ui-kit` gains an experimental toast
+  (`ToastProvider`, `ToastViewport`, `useToast`) for the core app, an
+  experimental `rowDetail` prop on `Table` and a `link` icon on `IconButton`.
+  The experimental isolated protocol gains two additive messages, `modal` and
+  `modal-layout`. Nothing was removed and no manifest needs editing. See
+  [Writing a plugin](../contributing/plugin-authoring#the-isolated-entry-point).
+
 ### 0.6.0 → 0.6.1 \{#from-0-6-0}
 
 - **Back up first**, as for any upgrade. One migration, **033**
