@@ -64,6 +64,14 @@ person and can change between releases (0.4.0 reworded many of them).
 - `401` without a valid session, `403 owner_required` when a member calls an
   owner-only route, `404` for something that doesn't exist or isn't yours,
   and `409` for a conflict, with a `code` naming it.
+- `429 rate_limited` when a user (or, for a request with no valid token, a
+  client address) is over the API rate limit, with a `Retry-After` header in
+  seconds. *Added in NEXT_VERSION, on by default.* The limits and the way to
+  raise or switch them off are on [API rate limit](../self-hosting/configuration#api-rate-limit).
+  The sign-in routes and the password-confirmed actions also answer `429`, with
+  their own counters.
+- `503 import_busy` from a CSV import commit that waited too long for its turn
+  (see [Import CSV](#import-csv)), with a `Retry-After` header.
 - A bundled plugin's own routes may return `issues` in the same shape.
   `@wickermoney/ui-kit` reads them for you (see
   [Writing a plugin](../contributing/plugin-authoring#form-errors)).
@@ -341,15 +349,15 @@ unaffected.
 ## Debt payoff
 
 The debt payoff plugin's routes, under `/api/v1/p/wickermoney.debt-payoff`.
-*Added in 0.6.0.* See [Debt payoff](../features/debt-payoff) for what the
-plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
+*Added in 0.6.0; per-debt fields added in NEXT_VERSION.* See
+[Debt payoff](../features/debt-payoff) for what the plan assumes. Amounts and rates are strings, never JSON numbers: a balance is
 at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
 24.99%. Unknown fields in a body are refused rather than ignored.
 
 | Method and path | What it does |
 |---|---|
 | `GET /debts` | The person's debts, in their own order. `?includeArchived=true` adds archived ones |
-| `POST /debts` | Create a debt: `{ name, balance, apr, minimumPayment, accountId?, sortOrder?, archived? }` |
+| `POST /debts` | Create a debt: `{ name, balance, apr, minimumPayment, accountId?, sortOrder?, archived?, included?, extraPayment?, repaymentStartsOn?, promoApr?, promoEndsOn?, promoDeferredInterest?, promoInterestBase?, compounding? }`. The last seven are described below |
 | `GET /debts/:id` | One debt |
 | `PUT /debts/:id` | Change a debt. Send any of the create fields (at least one); a field not sent keeps its value, and `accountId: null` removes the link |
 | `DELETE /debts/:id` | Remove a debt. Answers `{ removed: 1 }` |
@@ -358,13 +366,38 @@ at most four decimal places, and an `apr` is a percentage, so `"24.99"` is
 | `GET /plan?strategy&extra&tz` | The payoff plan. A parameter left out comes from the saved settings, and `tz` (an IANA zone, deciding what today is) defaults to `UTC`. Asking for a different strategy doesn't change the saved one |
 | `GET /account-suggestions` | `{ accounts }`: the person's loan and credit card accounts that aren't archived, each with the `debtId` already tracking it or `null` |
 
+*Added in NEXT_VERSION.* A debt has these further fields. Each is optional on
+create and on update, and leaving all of them out gives the plan a debt had
+before they existed:
+
+| Field | Meaning |
+|---|---|
+| `included` | Boolean, default `true`. `false` keeps the debt in the list but leaves it out of the plan, its totals and the debt-free date. Archived debts are never in the plan |
+| `extraPayment` | A monthly amount, default `"0.0000"` and never negative. Paid to this debt after the minimums and before the shared extra is spread, and not added to the shared pool, so it stops when the debt is paid off |
+| `repaymentStartsOn` | `YYYY-MM-DD` or `null`. Until the first plan month whose payment date is on or after it, no minimum is due and interest keeps adding to the balance |
+| `promoApr`, `promoEndsOn` | A promotional rate (a percentage string, `"0"` allowed) and its last day; both or neither, or `400 bad_promotion` |
+| `promoDeferredInterest` | Boolean, default `false`. Needs a promotional rate, or `400 bad_promotion` |
+| `promoInterestBase` | `original` (default) or `declining`: what backdated interest is charged on when a deferred-interest promotion is not cleared in time |
+| `compounding` | `monthly` (default), `daily` or `daily_simple` |
+
+`PUT /settings` and its strategy and extra are unchanged. The plan response is
+additive: besides the fields below it carries `earmarked` (the sum of the debts'
+own extra amounts, for debts that start with a balance), `excludedDebts` (`{ id, name }` for
+each debt switched out of the plan, archived ones not listed), and on each
+debt in `debts` its `extraPayment`, `repaymentStartsOn`, `repaymentStartMonth`,
+`compounding`, `earmarkCoversBalance` and a `promo` object (or `null`). A debt
+list item carries every field in the table. The data export gained the same
+columns.
+
 The plan carries the month-by-month `schedule`, each debt's payoff date, the
 `totalInterest` and `totalPaid`, `debtFreeDate` (or `null`), `months`, and the
 comparison with paying only the minimums (`minimumsOnly`, `monthsSaved`,
 `interestSaved`). A plan that doesn't finish within `monthLimit` (600) reports
 `capped: true` with a `cappedReason` and no debt-free date.
 
-Errors: `400` (`validation_failed`, `bad_id`, `bad_body`, `bad_account` for an
+Errors: `400` (`validation_failed`, `bad_id`, `bad_body`, `bad_promotion` for a
+promotional rate without an end date or the reverse, or deferred interest
+without a rate, and `bad_account` for an
 account that isn't one of the person's own loan or credit card accounts),
 `404 not_found` (including a debt that belongs to someone else), and `409`:
 `account_already_linked` (another active debt already tracks that account) or
@@ -380,6 +413,15 @@ rows than `IMPORT_MAX_ROWS` (default 100,000, counting rows that can't be
 read) is refused with `400 too_many_rows` before anything is written. See
 [Pool, statement timeouts and the import limit](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit).
 Both routes run under the longer `DB_LONG_STATEMENT_TIMEOUT`.
+
+*Added in NEXT_VERSION.* A process commits at most `IMPORT_MAX_CONCURRENT` imports
+at once. A `commit` over that limit waits for its turn and, after
+`IMPORT_QUEUE_WAIT_SECONDS`, is refused with `503 import_busy`, a message that
+says nothing was imported, and a `Retry-After` header in seconds. Send the same
+request again after that, with the same `idempotencyKey`, and it imports once.
+Both routes also count against the API's import rate limit
+(`API_RATE_LIMIT_IMPORT_MAX`, 30 a minute per user by default), which answers
+`429 rate_limited`. See [Concurrent imports](../self-hosting/configuration#concurrent-imports).
 
 | Method and path | What it does |
 |---|---|
