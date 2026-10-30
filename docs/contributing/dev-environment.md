@@ -43,12 +43,54 @@ pnpm test
 
 | Command | What it does |
 |---|---|
-| `pnpm dev` | Runs the API and web app in watch mode |
+| `pnpm dev` | Runs the API and web app in watch mode. Plugin frames need a built web app first: see [the dev server and plugin frames](#the-dev-server-and-plugin-frames) |
 | `pnpm lint` | ESLint across the workspace |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm build` | Builds packages, then apps |
 | `pnpm test` | Unit tests in every package — no database needed |
 | `pnpm test:integration` | API integration tests against a real PostgreSQL (files named `*.integration.test.ts`) |
+
+## The dev server and plugin frames
+
+*Changed in 0.7.0.* Most of the bundled plugins run in sandboxed frames
+(Insights, Spending Trends, Upcoming, Forecast and Debt payoff; Budgets and
+Import CSV still run in the app's own page). A frame is a separate document that
+the **API** serves with its own content security policy and sandbox, not
+something Vite can serve, so in `pnpm dev` the dev server forwards
+`/plugin-frame`, `/assets` and a frame's requests for `/plugins` to the API on
+port 8080. The frame then gets the same policy, sandbox and CORS headers it has
+in production.
+
+That needs a built copy of the web app for the API to serve. Once:
+
+```bash
+pnpm --filter @wickermoney/web build   # makes apps/web/dist, with plugin-frame.html
+# in .env, uncomment WEB_DIST_DIR=../web/dist (relative to apps/api)
+pnpm dev
+```
+
+The API then also serves the built app on port 8080, which you can ignore.
+
+- **A frame runs the built copy of its code.** There is no hot reload inside it.
+  After you change the frame runtime (`apps/web/src/frame`), the SDK's isolated
+  entry point, or a plugin that runs in a frame, run the build line again and
+  reload. Plugins that run in the app's own page are unchanged: Vite serves them
+  from `apps/web/public/plugins`, which their watch builds rewrite.
+- **Without the proxy and the build,** a widget shows "The plugin did not start
+  in time" and the console has CORS errors for `/@vite/client` and the frame's
+  modules, because Vite would answer `/plugin-frame` with its own page and no
+  policy. If a frame still fails to start, the console names the likely cause: no
+  built frame, the API not running, or something other than the API answering
+  `/plugin-frame`.
+- **Don't "fix" it by setting `server.cors` to the origin `null`.** That makes the
+  widgets load, but `null` is the origin of every sandboxed iframe on any site,
+  so any page open in the same browser could then read the dev server's source.
+  The frame would also be Vite's document with no policy, so it could do in
+  development what production refuses.
+- **To exercise the sandbox itself,** run
+  `pnpm --filter @wickermoney/web test:browser`. It builds a fixture plugin that
+  tries to escape and drives Chromium through the real API. It is not part of
+  `pnpm test`.
 
 ## The database, briefly
 

@@ -202,8 +202,9 @@ By default the app listens on `http://localhost:8180` (override with
 `HOST_PORT`). If you're putting a reverse proxy in front, add
 `- TRUST_PROXY=true` to the `wickermoney` service's `environment:` list.
 Without it, every request appears to come from the proxy's address, and the
-per-address auth rate limits apply to everyone behind it collectively instead
-of individually.
+per-address auth rate limits (and, from 0.7.0, the API rate limit for requests
+without a valid token) apply to everyone behind it collectively instead of
+individually.
 
 ## 5. First login
 

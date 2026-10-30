@@ -12,7 +12,13 @@ items, starting from today's actual balance. It comes from the bundled plugin
 `recurring_items` and `accounts` grants, and has no server code of its own. It
 reads core's forecast endpoint through the plugin SDK client.
 
-*Added in 0.2.1.*
+*Added in 0.2.1. Since 0.7.0 the page runs in a sandboxed frame,* the first page to
+do so. It looks and behaves as before: the frame grows to fit the page and the
+window scrolls, Tab order and the skip link are unchanged, and the tab title is
+the app's. Tab at the last control now leaves the frame instead of staying put.
+Any address under the page (`/p/wickermoney.forecast/forecast/...`) shows the
+Forecast page; before, it showed the plugin-unavailable page. See [How much a
+plugin is trusted](./plugins#how-much-a-plugin-is-trusted).
 
 ## Choosing what to look at
 

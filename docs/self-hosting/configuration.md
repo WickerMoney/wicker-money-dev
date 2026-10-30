@@ -30,11 +30,13 @@ without them.
 | `DB_STATEMENT_TIMEOUT` | `30000` | *0.6.0 and later.* Longest one SQL statement may run, in **milliseconds** (1000 to 3600000). |
 | `DB_LONG_STATEMENT_TIMEOUT` | `300000` | *0.6.0 and later.* The same limit, in milliseconds, for CSV import and the data export. Not lower than `DB_STATEMENT_TIMEOUT`. |
 | `IMPORT_MAX_ROWS` | `100000` | *0.6.0 and later.* The most data rows one CSV import may contain, 1 to 1000000. |
+| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX` | *0.7.0 and later.* CSV imports one API process commits at once, 1 to 1000; the others wait their turn. Blank or unset means half the pool, at least 1. |
+| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | *0.7.0 and later.* The longest, in **seconds** (0 to 600), an import waits for its turn before it is refused with `503 import_busy`. |
 
 ## Pool, statement timeouts and the import limit
 
-*Added in 0.6.0.* Four settings bound how much database work one API
-process does. Each is read at start-up and checked: a value outside its range
+*Added in 0.6.0; the last two settings in the table, in 0.7.0.* Six settings
+bound how much database work one API process does. Each is read at start-up and checked: a value outside its range
 stops the API with a configuration error that names the variable, rather than
 being clamped.
 
@@ -44,6 +46,8 @@ being clamped.
 | `DB_STATEMENT_TIMEOUT` | `30000` | 1000 to 3600000 | Longest one SQL statement may run, in **milliseconds**. A statement over the limit is cancelled and the request fails with the generic error; the cause is in the log. The floor of 1000 is deliberate: `30`, meant as seconds, is refused rather than cancelling nearly every query. |
 | `DB_LONG_STATEMENT_TIMEOUT` | `300000` | 1000 to 3600000 | The same limit for the routes that legitimately run longer: CSV import (including waiting its turn behind another import into the same account) and the data export. It is set inside those routes' transactions, so it ends with them; every other route keeps `DB_STATEMENT_TIMEOUT`. It must not be lower than `DB_STATEMENT_TIMEOUT`. |
 | `IMPORT_MAX_ROWS` | `100000` | 1 to 1000000 | The most data rows one CSV import may contain, counting rows that can't be read. A larger file is refused with `400 too_many_rows` and a message that names the limit, before anything is written. |
+| `IMPORT_MAX_CONCURRENT` | half of `DB_POOL_MAX`, at least 1 | 1 to 1000 | *0.7.0 and later.* CSV imports this API process commits at once. Blank or unset uses the default. A value at or above `DB_POOL_MAX` has no effect, because the pool then limits imports first. See [Concurrent imports](#concurrent-imports). |
+| `IMPORT_QUEUE_WAIT_SECONDS` | `30` | 0 to 600 | *0.7.0 and later.* The longest an import waits for its turn, in **seconds**, before it is refused with `503 import_busy` and a `Retry-After` header. `0` refuses at once when every slot is busy. |
 
 The 8 MB limit on the CSV file itself applies as well and isn't configurable.
 Before this release the row cap was a fixed 50,000.
@@ -70,12 +74,43 @@ seconds (the nginx default). On a small device, or behind a proxy with a
 short timeout, lower `IMPORT_MAX_ROWS`; raise it only if you also raise the
 proxy's timeout.
 
-**Concurrent imports share the pool.** Ten people committing 50,000 rows at
-the same moment held all ten connections for about 45 seconds, and 8 of 106
-other requests made in that time failed waiting for a connection. With
-`DB_POOL_MAX=20` none did, at the cost of slower individual imports on two
-vCPUs. If several people import at once, raise the pool and check
-`max_connections`.
+### Concurrent imports
+
+*Added in 0.7.0.* A commit holds one pooled database connection for its whole
+length, so before 0.7.0 a few large files at once could take every connection.
+On the maintainer's two-vCPU test machine, ten people committing 50,000 rows at
+the same moment held all ten connections of a pool of 10 for about 50 seconds,
+and 319 of 402 other requests made in that time failed waiting for a
+connection.
+
+Now a process commits at most `IMPORT_MAX_CONCURRENT` imports at once. An import
+over the limit waits for its turn **before** it reads the file or opens its
+transaction, so it holds no connection while it waits, and the rest of the app
+keeps the other half of the pool. If it has not had its turn after
+`IMPORT_QUEUE_WAIT_SECONDS`, it is refused with `503`, code `import_busy`, a
+`Retry-After` header and a message that says nothing was imported. The Import
+page shows that message and keeps the review, and sending the same file again
+imports it once (a repeated commit carries the same idempotency key).
+
+- **One person importing alone is not slowed down.** A 100,000-row commit took
+  15.2 seconds with the limit and 14.5 without.
+- **Measured, ten 50,000-row commits at once on a pool of 10, two vCPUs:** with
+  the default (a limit of 5 and a 30 second wait) none of 358 other requests
+  failed and all ten imports finished, the last after about 45 seconds. With
+  `IMPORT_QUEUE_WAIT_SECONDS=0`, five finished in about 21 seconds and five were
+  refused in about 1.6 seconds, and none of 168 other requests failed. These are
+  one machine's numbers, taken in a container shared with other work; the shape
+  is the useful part.
+- **Why 30 seconds.** A wait plus a commit (about 17 seconds for 100,000 rows)
+  stays under the 60 seconds that nginx waits by default. Set `0` if you would
+  rather see the refusal than wait.
+- **Per process.** The limit is per API process, and each process has its own
+  pool, so two API instances allow twice the imports. With several, set
+  `IMPORT_MAX_CONCURRENT` from the pool and PostgreSQL's `max_connections`
+  per instance.
+- **`analyze` is not held back by it.** It holds a connection only for its one
+  read. The [API rate limit](#api-rate-limit) does count it, in the import
+  bucket.
 
 `analyze` no longer returns every row of the file; see
 [Import](../api/overview#import-csv) in the API reference.
@@ -144,6 +179,55 @@ not through a pooler: point `DATABASE_OWNER_URL` at the database itself.
 | `AUTH_MAX_CONCURRENT_HASHES` | `4` | Argon2id hashes (~46 MiB each) computed at once; excess work queues rather than spiking memory. |
 
 Rate limit counters live in memory — per API process, reset on restart.
+
+## API rate limit
+
+*Added in 0.7.0. On by default.* Every request to `/api/v1` counts against a
+per-user limit, so one client in a loop (a script, a runaway tab, a stolen
+token) cannot use up the whole API process. Before 0.7.0 only the sign-in routes
+and the password-confirmed actions had limits.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `API_RATE_LIMIT_ENABLED` | `true` | `false` turns the whole limit off. The sign-in limits above are separate and stay on. |
+| `API_RATE_LIMIT_MAX` | `600` | Requests per user per window, everything except CSV import and the data export. 1 to 10000000. |
+| `API_RATE_LIMIT_IMPORT_MAX` | `30` | CSV import requests per user per window: `analyze` (each page of flagged rows is one request) and `commit` together. |
+| `API_RATE_LIMIT_EXPORT_MAX` | `5` | Data export downloads per user per window. Each also needs a password ticket. |
+| `API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the window, 1 to 86400. All three limits use it. |
+
+- **Who is counted.** A request with a valid signed-in token counts against that
+  user, and a plugin's token counts as the user it speaks for. A request with no
+  valid token, or a forged or expired one, counts against the client address
+  instead: the forwarded address when `TRUST_PROXY=true`, the connection's
+  address otherwise. Behind a proxy that you have not told the API to trust,
+  every request without a valid token then shares the proxy's address.
+- **What is not counted.** The health checks, the web app's files and the
+  plugin frame document. Only paths under `/api/v1/` count.
+- **Over the limit** the API answers `429` with the code `rate_limited`, a
+  message that says how many seconds to wait, and a `Retry-After` header in
+  seconds. The web app shows the message like any other failed request and
+  never signs anyone out for it. A refused request still counts, so retry after
+  `Retry-After`, not at once.
+- **The defaults are well above a person.** A scripted heavy session (sign in, a
+  full dashboard, filtering and paging the ledger, importing and re-importing
+  5,000 rows, one export) made 95 requests in 63 seconds, 87 in its busiest
+  minute. The web app makes no periodic requests, so an idle tab adds none.
+  That is one machine, one account and one pace.
+- **Upgrade note: a script that calls the API in a loop may now get `429`s.**
+  A sync, a poller or a bulk loader is the usual case. Raise
+  `API_RATE_LIMIT_MAX` (and `API_RATE_LIMIT_IMPORT_MAX` and
+  `API_RATE_LIMIT_EXPORT_MAX` if it imports or exports), or set
+  `API_RATE_LIMIT_ENABLED=false`. The limit is per user, so one script does not
+  slow anyone else. There is no per-script setting.
+- **Per process.** The counters are in the API process's memory and reset on
+  restart. With more than one API instance each counts on its own, so a client
+  can make up to that many times the limit. A store shared between instances is
+  not built.
+- **It composes with the other limits.** The rate limit counts requests and runs
+  first. The [import limit](#concurrent-imports) caps commits in flight. The
+  sign-in and password-attempt limits keep their own counters, and a request can
+  be counted by this limit and by one of them. A request refused here never
+  reaches the database or takes an import slot.
 
 ## Web app
 

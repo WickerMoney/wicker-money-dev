@@ -69,12 +69,12 @@ Where a plugin's pages and widgets run depends on the plugin:
 
 | Plugin | Where its UI runs | Trust |
 | --- | --- | --- |
-| Insights, Spending Trends | A sandboxed frame | Confined to its grants (below) |
-| Budgets, Import CSV, Upcoming, Forecast, Debt payoff | **The app's own page** | **Fully trusted, not sandboxed** |
+| Insights, Spending Trends, Upcoming, Forecast, Debt payoff | A sandboxed frame | Confined to its grants (below) |
+| Budgets, Import CSV | **The app's own page** | **Fully trusted, not sandboxed** |
 | A third-party plugin an operator has added | A sandboxed frame, always | Confined to its grants (below) |
 
-**The five bundled plugins in the app's own page** share the page, its memory
-and your session with the app. They can call any `/api/v1/*` route you can. The
+**The two bundled plugins in the app's own page** (Budgets and Import CSV) share
+the page, its memory and your session with the app. They can call any `/api/v1/*` route you can. The
 tables a manifest asks for (`requiredTables`) and the `x-wickermoney-plugin`
 header are developer feedback, not a security boundary for that code. They ship
 in the image and are reviewed with the rest of the application.
@@ -90,6 +90,16 @@ routes for the tables the manifest lists, plus the plugin's own routes, and
 refuses everything else, including sign-in, the data export, the erase actions,
 plugin management and other plugins' routes. A hostile-plugin test suite
 attempts about 140 escapes, in Chromium, on every pull request.
+
+*Changed in 0.7.0.* Upcoming (the Until payday widget), Forecast (a whole
+page) and Debt payoff (a page and a widget) moved into frames, so they now reach
+data only through the app, with only their own grants. Forecast and Upcoming
+hold read grants on `recurring_items` and `accounts`; Debt payoff reads
+accounts and its own routes. Each looks and behaves as before. A widget's frame
+is not created until its card is near the screen (see [The
+dashboard](./dashboard#cards-that-run-in-a-frame)), so find in page and printing
+see only the widgets that have started. Moving Budgets and Import CSV into
+frames is still not done.
 
 **What the sandbox does not stop** (observed in Chromium 141; WebKitGTK 2.52
 was checked for the last item only; Firefox and Safari have not been tested):
@@ -155,8 +165,8 @@ the plugin.
 
 - An install flow, a catalog or signing for third-party plugins. Today an
   operator adds one by hand (see above), and an independent security review
-  comes first. Moving the five remaining bundled plugins into frames is also not
-  done. See the
+  comes first. Moving the two remaining bundled plugins (Budgets and Import CSV)
+  into frames is also not done. See the
   [roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
 - Per-account choices. A plugin is on or off for the whole instance.
 
