@@ -12,7 +12,7 @@ remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
-plugin code from 0.3.0 to 0.6.0.
+plugin code from 0.3.0 to 0.7.0.
 
 ## Stability tiers
 
@@ -50,8 +50,8 @@ No `./recurrence` export was removed in 0.5.0 or in 0.6.0.
 
 ### The isolated entry point
 
-*Added in 0.6.0. Experimental. The web app hosts it, and Insights and
-Spending Trends run on it.*
+*Added in 0.6.0. Experimental. The web app hosts it, and Insights, Spending
+Trends, Upcoming, Forecast and Debt payoff run on it.*
 
 `@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
 a sandboxed frame instead of in the app's own page. A `PluginContext` is an
@@ -92,10 +92,31 @@ What this does and doesn't change:
   because zod falls back to its ordinary parser. Update zod, or call
   `z.config({ jitless: true })` before you build your first schema. Never add
   `'unsafe-eval'` to get past it: the policy is fixed by the host.
-- **Keep overlays inside the frame.** The protocol has no host-drawn overlay or
-  dialog, and a frame can't draw outside its own rectangle, so tooltips and
-  menus must fit inside it. The host owns the frame's width and clamps the
-  height you report (widgets at most 800 px).
+- **Keep overlays inside the frame.** The protocol has no host-drawn overlay,
+  and a frame can't draw outside its own rectangle, so tooltips and menus must
+  fit inside it. The host owns the frame's width and clamps the height you
+  report (widgets at most 800 px, pages 240 to 20,000 px). A widget that needs a
+  dialog should `navigate` to a page.
+- **A page's modal dialog works.** *Added in 0.7.0.* A page frame is as tall as
+  its content, so a `position: fixed` element in it is placed against the frame,
+  not the window. While a native `<dialog>` opened with `showModal()` is open in
+  a page, the frame sends the additive protocol message `modal` and the host
+  lifts the frame to a fixed layer over the content area, locks the window
+  scroll, and answers with `modal-layout` so the page stays where it was. Nothing
+  in the plugin has to ask. Only `<dialog>` with `showModal()` is lifted, not a
+  hand-made fixed overlay. A widget's `modal` is ignored. A host that predates
+  the messages ignores them and the dialog is placed against the frame, as it
+  was.
+- **A `<form>` works.** *Added in 0.7.0.* The frame's sandbox has no
+  `allow-forms`, so the browser blocks every form submission before the `submit`
+  event fires. The frame runtime dispatches `submit` itself on a click on a
+  submit button or Enter in a field, after checking the form's constraints, so a
+  React `onSubmit` handler works unchanged. Nothing is navigated.
+- **Frames start when they scroll into view.** *Changed in 0.7.0.* A widget's
+  iframe is not created until its card is within 600 px of the viewport, and a
+  browser without `IntersectionObserver` starts every frame at load. Find in page
+  and printing see only frames that have started. The 15 second "did not start"
+  clock begins when the frame is created and stops while the tab is hidden.
 - **Report your height with `observeSize`.** Chromium does not run an
   off-screen cross-origin frame's rendering updates, so a `ResizeObserver` of
   your own never fires for a widget below the fold. `observeSize` also re-reads
@@ -371,3 +392,81 @@ return (
 
 Check what you can in the browser first, with the same rules the API uses, so
 most mistakes never make a round trip. The server still checks everything.
+
+## Toasts, row detail and the link icon (ui-kit)
+
+*Added in 0.7.0. Experimental.* Three additions to `@wickermoney/ui-kit`. None of them
+removes or changes anything that was there.
+
+### `ToastProvider`, `ToastViewport` and `useToast`
+
+A toast reports the result of one discrete action ("Deleted 'Coffee'
+(-$4.50)."). It is **for the core app only for now**: a plugin's copy of the
+package has no provider, so `useToast()` throws there with a message that says
+so, and the isolated protocol's `notify` message is still reserved and answered
+`not_supported`. A plugin keeps showing its result inline. These exports may
+change in any 0.x minor release.
+
+```tsx
+import { ToastProvider, ToastViewport, useToast } from '@wickermoney/ui-kit'
+
+// Once, above your routes. `routeKey` is optional: when it changes (pass the
+// pathname), every toast except errors is cleared.
+<ToastProvider routeKey={pathname}>
+  <main>
+    <ToastViewport />   {/* first child of the page container */}
+    <Routes>...</Routes>
+  </main>
+</ToastProvider>
+
+const toast = useToast()
+toast.show('Deleted Coffee (-$4.50).', { kind: 'success', key: 'txn:delete' })
+```
+
+| Member | What it does |
+|---|---|
+| `useToast()` | Returns `{ show, dismiss }`, stable for the life of the provider. Throws outside a `ToastProvider` |
+| `show(message, { kind?, key? })` | Returns an id. `message` is a plain string (keep it under 200 characters). `kind` is `success`, `info` (the default), `warning` or `error`. A toast with the same `key` replaces the earlier one in place and is announced again, with the same id |
+| `dismiss(id)` | Removes a visible, waiting or not yet delivered toast |
+| `ToastProvider` | Props `children` and `routeKey?`. Owns the queue and the screen-reader announcer |
+| `ToastViewport` | No props. Draws the stack; renders nothing when empty or outside a provider |
+
+How it behaves:
+
+- **Nothing dismisses itself.** There is no duration, timer or pause on hover. A
+  toast stays until its Close button or Escape (with the toast focused) closes
+  it, or the same `key` replaces it. There is no Undo.
+- **Announcements.** One always-present, visually hidden `role="status"` region
+  (`aria-live="polite"`) speaks each toast once, and warnings and errors are
+  prefixed "Warning: " and "Error: ". The visible stack is not a live region, and
+  `show()` never moves focus.
+- **Limits.** Three toasts show (two at 560 px and narrower); the rest wait and
+  appear as slots free, and an error goes ahead of the queue. "Dismiss all"
+  appears from two toasts.
+- **A modal holds delivery** for up to two seconds, so close a dialog before you
+  call `show()`. A toast cannot be reached while a modal is open.
+- **Placement.** The viewport is an in-flow banner that sticks at the top of the
+  page content and pushes the page down rather than covering it. Set the CSS
+  custom property `--wm-toast-offset-top` to the bottom edge of anything fixed to
+  the top of the window (the app shell does this for its phone bar). The fade is
+  off under `prefers-reduced-motion`.
+- **A new token,** `--wm-shadow-raised`, in light and dark.
+
+What the app does with it is on [Notifications](../features/notifications).
+
+### `Table` `rowDetail`
+
+`rowDetail={(row) => node}` renders `node` in a full-width row directly under
+`row` (`<tr class="wm-table__detail"><td colSpan>`); return `null`, `undefined`
+or `false` for none. The row it belongs to gets the class
+`wm-table__row--open`. It is for something that belongs to one row but does not
+fit in its cells, such as an inline picker. The content is yours to name
+(`role="group"` and `aria-label`), move focus into when it opens and return
+focus from when it closes. Experimental, and for the core app until it has a
+second user.
+
+### `IconButton` `link`
+
+`IconButton`'s `icon` accepts `link` as well as `edit`, `delete`, `disable`,
+`enable`, `archive`, `history`, `end` and `balance`. The label is still
+required, and is both the accessible name and the tooltip.

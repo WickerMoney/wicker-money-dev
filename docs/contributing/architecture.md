@@ -87,12 +87,12 @@ reviewed.*
 
 A plugin's UI runs in one of two places, decided by the API
 (`pluginRuntimeFor`): the app's own page, or a sandboxed frame. Only a bundled
-plugin on a short host-internal list can run in the page. Insights and Spending
-Trends are not on it; Budgets, Import CSV, Upcoming, Forecast and Debt payoff
-are, and run **fully trusted, in the host's origin**, sharing the page, its
-memory and the signed-in user's session. For them the scoped client, the
-`x-wickermoney-plugin` header and the manifest check in `ctx.api` catch mistakes
-early; they are not a security boundary.
+plugin on a short host-internal list can run in the page. Insights, Spending
+Trends, Upcoming, Forecast and Debt payoff are not on it (the last three moved
+off it in 0.7.0); Budgets and Import CSV are, and run **fully trusted, in the
+host's origin**, sharing the page, its memory and the signed-in user's session.
+For them the scoped client, the `x-wickermoney-plugin` header and the manifest
+check in `ctx.api` catch mistakes early; they are not a security boundary.
 
 Everything else runs in an `<iframe sandbox="allow-scripts">` (never
 `allow-same-origin`), loaded from `GET /plugin-frame`, which the API serves with
@@ -109,6 +109,20 @@ carrying the plugin id and its granted tables. The server classifies every
 the table is denied, and a test fails when one is. A frame costs time and
 memory: roughly 6 to 9 MiB and 150 ms per frame after the first, and a first
 frame starts its own renderer process.
+
+*Added in 0.7.0.* A frame can be a widget or a whole page. Forecast and Debt
+payoff are the first page frames: the frame is as tall as its content (the host
+clamps a page to 240 to 20,000 px and a widget to 96 to 800 px), the window
+scrolls, and the page title, the one `main` landmark and the skip link stay the
+host's. A page's address is matched with everything under it, and the frame is
+told the rest. A widget's frame is not created until its card is within 600 px
+of the viewport; pages never wait. While a page's modal `<dialog>` is open, the
+host lifts the frame to a fixed layer over the content area (never over the
+navigation), driven by two additive messages, `modal` and `modal-layout`. The
+frame's sandbox has no `allow-forms`, so the frame runtime submits forms itself
+by dispatching the `submit` event; the sandbox is not widened. The host's
+notification toast is not available to plugins: a plugin page keeps its own
+inline status messages.
 
 Known gaps, observed in Chromium 141 (WebKitGTK 2.52 for the last one only): the
 frame's policy does not govern `<link rel=prerender>` or WebRTC, and a frame can

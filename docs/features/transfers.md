@@ -65,6 +65,8 @@ can't be turned into a transfer. Delete it and record a transfer instead.
 
 **Delete** on either row removes both, after a confirmation that says so. A
 half-deleted transfer would be money that left one account and arrived nowhere.
+Afterwards a [notification](./notifications) says the transfer's amount and that
+both sides were removed.
 
 ### Categories
 

@@ -13,12 +13,6 @@ import from the same bank needs no setup, and any import can be undone.
 
 *Added in 0.1.0.*
 
-{/* Release prep (0.7.0): the import concurrency limit (H1, feat(api)) changes
-how concurrent commits are queued and what a waiting import holds. This page
-describes v0.6.1, where imports into one account take turns and each commit
-holds a pooled connection. When 0.7.0 is cut, update "Limits" below and the
-self-hosting configuration page, and name the new setting here if it has one. */}
-
 ## The four steps
 
 ### 1. File and account
@@ -172,6 +166,21 @@ can be undone once.
   turns, so the second sees what the first wrote. Imports into other accounts, by
   you or by other people on the instance, run alongside, each holding a database
   connection for its commit.
+- **A few imports at a time across the instance.** *Added in 0.7.0.* One API
+  process commits at most `IMPORT_MAX_CONCURRENT` imports at once (by default,
+  half of its database pool). Another commit waits its turn without holding a
+  connection, so the rest of the app keeps working while large files are
+  imported. If it hasn't had its turn after `IMPORT_QUEUE_WAIT_SECONDS` (30 by
+  default), the page says that other imports are running and that nothing was
+  imported, and keeps your review. Wait the number of seconds it gives and press
+  the button again: the second attempt imports the file once. One person
+  importing alone never waits. See
+  [Concurrent imports](../self-hosting/configuration#concurrent-imports).
+- **A request limit.** *Added in 0.7.0.* Each person may make 30 import requests
+  a minute (an analysis, or one more page of rows to review, counts as one;
+  so does a commit). Past that the page shows the message and says how many
+  seconds to wait. See
+  [API rate limit](../self-hosting/configuration#api-rate-limit).
 - **One commit is one batch.** Everything is written in a single transaction, or
   nothing is. A repeat of the same request, such as a double click or a retry
   after a network error, writes nothing the second time.
