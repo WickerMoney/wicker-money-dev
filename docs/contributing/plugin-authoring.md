@@ -450,6 +450,13 @@ How it behaves:
   custom property `--wm-toast-offset-top` to the bottom edge of anything fixed to
   the top of the window (the app shell does this for its phone bar). The fade is
   off under `prefers-reduced-motion`.
+- **Clearance.** *Next release.* While a banner shows, `ToastViewport` sets the
+  custom property `--wm-toast-height` (its height in px, rounded up) on its
+  parent element, and removes it when the banner goes. A stylesheet can use it to
+  keep a control that is scrolled to (Tab, Shift+Tab) out from behind the banner
+  without measuring it: `scroll-margin-top: calc(var(--wm-toast-offset-top, 0px)
+  + var(--wm-toast-height, 0px) + 8px)`, on the control rather than its row.
+  Like the rest of the toast, the property is experimental.
 - **A new token,** `--wm-shadow-raised`, in light and dark.
 
 What the app does with it is on [Notifications](../features/notifications).
