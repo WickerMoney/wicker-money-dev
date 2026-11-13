@@ -72,6 +72,9 @@ person and can change between releases (0.4.0 reworded many of them).
   their own counters.
 - `503 import_busy` from a CSV import commit that waited too long for its turn
   (see [Import CSV](#import-csv)), with a `Retry-After` header.
+  `503 staging_full` from opening a staged CSV upload when the process already
+  holds all the staged text it allows (see [Staged upload](#staged-upload)),
+  also with `Retry-After`.
 - A bundled plugin's own routes may return `issues` in the same shape.
   `@wickermoney/ui-kit` reads them for you (see
   [Writing a plugin](../contributing/plugin-authoring#form-errors)).
@@ -407,7 +410,8 @@ person's own: the table is under row-level security.
 ## Import CSV
 
 The CSV import plugin's routes, under `/api/v1/p/wickermoney.import-csv`.
-A request carries the account, the column mapping and the CSV text. The CSV
+A request carries the account, the column mapping and the CSV text, or the id
+of a file sent earlier in pieces (see [Staged upload](#staged-upload)). The CSV
 can be at most 8,000,000 bytes (`400` above that), and a file with more data
 rows than `IMPORT_MAX_ROWS` (default 100,000, counting rows that can't be
 read) is refused with `400 too_many_rows` before anything is written. See
@@ -421,12 +425,14 @@ says nothing was imported, and a `Retry-After` header in seconds. Send the same
 request again after that, with the same `idempotencyKey`, and it imports once.
 Both routes also count against the API's import rate limit
 (`API_RATE_LIMIT_IMPORT_MAX`, 30 a minute per user by default), which answers
-`429 rate_limited`. See [Concurrent imports](../self-hosting/configuration#concurrent-imports).
+`429 rate_limited`; so does `upload/begin`, one request per staged file. See
+[Concurrent imports](../self-hosting/configuration#concurrent-imports).
 
 | Method and path | What it does |
 |---|---|
 | `POST /analyze` | Reads and classifies a file without writing anything |
 | `POST /commit` | Writes the import as one batch. Rows classified `new` are imported, `needs-review` rows only when their row number is in `acceptRowNumbers`, duplicates never. An optional `idempotencyKey` (1 to 128 characters) makes a repeat return the first outcome with `replayed: true` |
+| `POST /upload/begin`, `/upload/chunk`, `/upload/finish`, `/upload/abort` | Send a file in pieces and drop one you no longer want. See [Staged upload](#staged-upload) |
 | `GET /batches` | The 25 most recent batches |
 | `POST /batches/:id/revert` | Undo one import |
 
@@ -457,6 +463,117 @@ To read another page of flagged rows, send the same request with
 number from 1, default 500, **lowered to 1000** if larger). Each such request
 sends the file again and analyses it again. A value that isn't a whole number
 is a `400`.
+
+### Staged upload
+
+{/* Release prep: the staged upload is in main but not in a release. When
+the release that carries it ships, replace the "Next release" note below with
+"*Added in <version>.*" like the other sections of this page. */}
+
+:::note[Next release]
+The staged upload routes are in the main branch and are not in 0.7.0. The
+`:edge` image has them (see [Release tags](../self-hosting/release-tags)).
+:::
+
+`analyze` and `commit` take the file one of two ways: `csv`, the text in the
+body (up to 8,000,000 bytes, as above), or `uploadId`, the id of a file sent
+earlier in pieces. Send exactly one of the two; both is a `400`. The pieces
+exist because a sandboxed plugin frame reaches the API through a broker whose
+messages stop at 256 KiB, so it can't send an 8 MB body. The `csv` body is
+unchanged and stays the simple way for small files and scripts. Whichever way
+the file arrives, the same code reads it, so a staged file gives the same rows
+and the same summary as the same text in a body.
+
+All four routes are under `/api/v1/p/wickermoney.import-csv`, need the user's
+token like the rest of the plugin, and take a JSON body.
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /upload/begin` | `{ chunks, bytes }`: how many chunks (1 to 64) and the exact size of the whole text in bytes of UTF-8 (1 to 8,000,000) | `{ uploadId, chunks, bytes, expiresInSeconds }` |
+| `POST /upload/chunk` | `{ uploadId, index, text }`: `index` from 0 to `chunks - 1`; `text` from 1 byte to 256 KiB | `{ chunks, received, bytes }` |
+| `POST /upload/finish` | `{ uploadId }` | `{ chunks, received, bytes }` |
+| `POST /upload/abort` | `{ uploadId }` | `{}`, whether or not the id was live |
+| `POST /analyze`, `POST /commit` | the usual body with `uploadId` in place of `csv` | as before |
+
+`uploadId` is a UUID; anything else is a `400`.
+
+**Sending the pieces.** `begin` states the number of chunks and the exact size
+once, and the chunks must be able to hold it (a chunk is at most 256 KiB, so 8,000,000
+bytes needs at least 31 chunks). A chunk names its own position with
+`index`, so chunks can arrive in any order and several at a time. Sending an
+index again with the same text is accepted and changes nothing, so a lost
+answer can be retried; different text for a stored index is
+`409 chunk_conflict`. A chunk can end between the two halves of a character that
+takes a surrogate pair; the pieces are joined before the text is checked.
+Then call `finish`, and then `analyze` or `commit` with the `uploadId`.
+
+**What `finish` checks**, in this order:
+
+1. Every index from 0 to `chunks - 1` has arrived. If not, `409 upload_incomplete`
+   names the first missing ones and the upload stays open for them.
+2. The bytes add up to exactly what `begin` declared. If not,
+   `400 upload_size_mismatch`.
+3. The joined text is well-formed. If not, `400 upload_not_text`. JSON decoding
+   has already replaced invalid UTF-8 bytes with U+FFFD, so what is left to
+   refuse is an unpaired surrogate.
+
+A failure at step 2 or 3 discards the upload, since sending more chunks can't
+repair it. `finish` on a finished upload repeats its answer, and a chunk sent
+after `finish` is `409 upload_finished`. `analyze` or `commit` before `finish`
+is `409 upload_incomplete`.
+
+**Limits.** Each is checked when the data it limits arrives, not at `finish`.
+
+| Limit | Value | Over it |
+|---|---|---|
+| Live uploads per user | 2 | `begin`: `409 too_many_uploads` |
+| One upload | 8,000,000 bytes in at most 64 chunks | `begin`: `400` |
+| One chunk | 256 KiB of UTF-8 | `413 chunk_too_large` |
+| Chunks add up to more than `begin` declared | the declared bytes | `413 upload_too_large`, and the upload is discarded |
+| Time to live | 15 minutes after the last new chunk (`begin` counts as the first) | the upload is gone: `404 upload_not_found` |
+| All users together, per API process | 64,000,000 bytes (eight uploads of the largest size), reserved at `begin` | `begin`: `503 staging_full` with `Retry-After: 30` |
+
+Only a new chunk extends the 15 minutes: a repeated chunk, `finish`, `analyze`
+and `commit` don't. A client that keeps a person on the mapping step for longer
+sends the file again when it meets `404`.
+
+A bad `chunks` or `bytes`, `index`, `text` or `uploadId` is a `400` with
+`code: "import_failed"` and `issues` naming the field, the same shape the other
+import routes use for a bad field (not `validation_failed`, which the core
+routes use).
+
+**Ids can't be probed.** An id that was never issued, belongs to another user,
+has expired or has already been imported all get the same
+`404 upload_not_found`.
+
+**Dropping an upload.** An upload is removed when its commit succeeds, when it
+expires, and on `abort`. `abort` answers `200` with `{}` whether or not the id
+was a live upload of the caller's, so it can't be used to probe ids; use it
+when a person picks another file, so they aren't held at the limit of 2
+uploads for 15 minutes.
+
+**Retrying a commit.** A commit with an `uploadId` and an `idempotencyKey`
+frees the upload's text when it succeeds but keeps a small receipt (the key and
+the count of rows that failed, no text) for 15 minutes, at most 8 per user. The
+same `uploadId` with the same key then answers `200` with the first outcome
+and `replayed: true`, as a repeated key does for a `csv` body, so a lost
+response or a double click is safe. A different key, or none, for an imported
+upload is `404 upload_not_found`. A commit that fails leaves the upload in
+place for another try until it expires.
+
+**Rate limit.** `upload/begin` counts in the import bucket with `analyze` and
+`commit` (`API_RATE_LIMIT_IMPORT_MAX`): one request per file, the one that
+reserves memory. `chunk`, `finish` and `abort` count in the general bucket,
+because a 100,000-row file is about 38 requests and the import bucket's 30 a
+minute would allow one upload a minute. See [API rate limit](../self-hosting/configuration#api-rate-limit).
+
+**One process, in memory.** Staged text lives in the API process's memory.
+Nothing is written to the database, so there is no migration. A restart empties
+it (the client gets `404 upload_not_found` and sends the file again), and with
+several API instances each has its own store, so every request for one upload
+must reach the same instance. See
+[Concurrent imports](../self-hosting/configuration#concurrent-imports) for the
+memory this can hold.
 
 ## In the meantime
 

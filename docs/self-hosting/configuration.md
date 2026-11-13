@@ -111,6 +111,18 @@ imports it once (a repeated commit carries the same idempotency key).
 - **`analyze` is not held back by it.** It holds a connection only for its one
   read. The [API rate limit](#api-rate-limit) does count it, in the import
   bucket.
+- **Staged uploads hold memory too.** *Next release.* A file sent in pieces
+  (see [Staged upload](../api/overview#staged-upload)) waits in the API
+  process's memory until it is imported, dropped or 15 minutes old. One process
+  holds at most 64,000,000 bytes of it for all users together, 2 uploads of at
+  most 8,000,000 bytes per user, and refuses another with `503 staging_full`
+  and `Retry-After`. The text is held as JavaScript strings, which take one byte
+  a character for Latin-1 text (typical for bank CSV) and two for anything else,
+  so expect about 64 MB of heap when full, and up to twice that for other
+  scripts, plus a moment of double while one upload's pieces are joined. That
+  estimate comes from the code's own comment and was not measured for this page.
+  The limits are fixed in the code, not variables. Like the other import limits
+  they are per process, and a restart empties them.
 
 `analyze` no longer returns every row of the file; see
 [Import](../api/overview#import-csv) in the API reference.
@@ -191,7 +203,7 @@ and the password-confirmed actions had limits.
 |---|---|---|
 | `API_RATE_LIMIT_ENABLED` | `true` | `false` turns the whole limit off. The sign-in limits above are separate and stay on. |
 | `API_RATE_LIMIT_MAX` | `600` | Requests per user per window, everything except CSV import and the data export. 1 to 10000000. |
-| `API_RATE_LIMIT_IMPORT_MAX` | `30` | CSV import requests per user per window: `analyze` (each page of flagged rows is one request) and `commit` together. |
+| `API_RATE_LIMIT_IMPORT_MAX` | `30` | CSV import requests per user per window: `analyze` (each page of flagged rows is one request) and `commit` together, and, from the next release, `upload/begin` (one request per [staged file](../api/overview#staged-upload)). |
 | `API_RATE_LIMIT_EXPORT_MAX` | `5` | Data export downloads per user per window. Each also needs a password ticket. |
 | `API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the window, 1 to 86400. All three limits use it. |
 
