@@ -12,7 +12,7 @@ remote must be an ES module, CSS must be injected with `adoptPluginStyles`,
 paths are relative to the API root), are in the
 [Writing a plugin](https://github.com/wickermoney/wicker-money/blob/main/DEVELOPMENT.md#writing-a-plugin)
 section of the app repo's `DEVELOPMENT.md`. This page covers what changed for
-plugin code from 0.3.0 to 0.7.0.
+plugin code from 0.3.0 to 0.8.0.
 
 ## Stability tiers
 
@@ -118,6 +118,15 @@ What this does and doesn't change:
   browser without `IntersectionObserver` starts every frame at load. Find in page
   and printing see only frames that have started. The 15 second "did not start"
   clock begins when the frame is created and stops while the tab is hidden.
+- **Tab moves across frames at once.** *Changed in 0.8.0.* At the last control of
+  a page or widget frame, Tab (and Shift+Tab at the first) sends the host the
+  existing `focus-out` message, and the host moves focus to the next or previous
+  control on the page straight away, entering a neighbouring frame with
+  `focus-in`. Before, the frame left it to the browser and the host stepped in
+  about 60 ms later, so the next Tab could land back in the frame. At the end of
+  a page whose last thing is a frame, the host wraps to the skip link. The frame runtime does it; a plugin
+  needs no change. Tab is left alone while a modal `<dialog>` is open in the
+  frame. The protocol is unchanged.
 - **Report your height with `observeSize`.** Chromium does not run an
   off-screen cross-origin frame's rendering updates, so a `ResizeObserver` of
   your own never fires for a widget below the fold. `observeSize` also re-reads
@@ -393,6 +402,35 @@ return (
 
 Check what you can in the browser first, with the same rules the API uses, so
 most mistakes never make a round trip. The server still checks everything.
+
+## Busy controls (ui-kit)
+
+*Added in 0.8.0.* A control that is `disabled` while its request runs loses
+keyboard focus, and a screen reader's cursor with it, the moment it is set.
+`Button`, `IconButton`, `Field` and `SelectField` take a `busy` prop instead: the
+control stays focusable and looks disabled; a button or select is
+`aria-disabled="true"` and ignores a click or a change, and a field becomes
+read-only. Ignoring an activation says "Still working. Try again in a moment."
+politely to a screen reader, in the toast provider's live region when there is one
+and in a small hidden region of its own when there is not (as in a plugin frame).
+Keep `disabled` for a control that cannot be used for another reason, such as an
+empty required field.
+
+For a plain element such as a checkbox or a switch, set
+`aria-disabled={busy || undefined}` and wrap its handler in
+`guardBusy(busy, handler)`, which returns the handler unchanged when not busy and
+otherwise cancels the event and says so.
+
+```tsx
+<Button variant="primary" busy={saving} onClick={save}>Save</Button>
+<input type="checkbox" checked={on} aria-disabled={saving || undefined} onChange={guardBusy(saving, toggle)} />
+```
+
+This is a public addition to `@wickermoney/ui-kit`, not an experimental one:
+`busy` defaults to off, so nothing that was there changes. The same release makes
+a `Table` whose scroller is wider than its room a Tab stop with a visible focus
+ring, named by the table's caption when it has one, so a wide table can be
+scrolled with the keyboard; a table that fits adds no Tab stop.
 
 ## Toasts, row detail and the link icon (ui-kit)
 
