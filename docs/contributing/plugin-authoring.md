@@ -450,7 +450,7 @@ How it behaves:
   custom property `--wm-toast-offset-top` to the bottom edge of anything fixed to
   the top of the window (the app shell does this for its phone bar). The fade is
   off under `prefers-reduced-motion`.
-- **Clearance.** *Next release.* While a banner shows, `ToastViewport` sets the
+- **Clearance.** *Added in 0.8.0.* While a banner shows, `ToastViewport` sets the
   custom property `--wm-toast-height` (its height in px, rounded up) on its
   parent element, and removes it when the banner goes. A stylesheet can use it to
   keep a control that is scrolled to (Tab, Shift+Tab) out from behind the banner

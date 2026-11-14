@@ -111,7 +111,7 @@ imports it once (a repeated commit carries the same idempotency key).
 - **`analyze` is not held back by it.** It holds a connection only for its one
   read. The [API rate limit](#api-rate-limit) does count it, in the import
   bucket.
-- **Staged uploads hold memory too.** *Next release.* A file sent in pieces
+- **Staged uploads hold memory too.** *Added in 0.8.0.* A file sent in pieces
   (see [Staged upload](../api/overview#staged-upload)) waits in the API
   process's memory until it is imported, dropped or 15 minutes old. One process
   holds at most 64,000,000 bytes of it for all users together, 2 uploads of at
@@ -203,7 +203,7 @@ and the password-confirmed actions had limits.
 |---|---|---|
 | `API_RATE_LIMIT_ENABLED` | `true` | `false` turns the whole limit off. The sign-in limits above are separate and stay on. |
 | `API_RATE_LIMIT_MAX` | `600` | Requests per user per window, everything except CSV import and the data export. 1 to 10000000. |
-| `API_RATE_LIMIT_IMPORT_MAX` | `30` | CSV import requests per user per window: `analyze` (each page of flagged rows is one request) and `commit` together, and, from the next release, `upload/begin` (one request per [staged file](../api/overview#staged-upload)). |
+| `API_RATE_LIMIT_IMPORT_MAX` | `30` | CSV import requests per user per window: `analyze` (each page of flagged rows is one request) and `commit` together, and, from 0.8.0, `upload/begin` (one request per [staged file](../api/overview#staged-upload)). |
 | `API_RATE_LIMIT_EXPORT_MAX` | `5` | Data export downloads per user per window. Each also needs a password ticket. |
 | `API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the window, 1 to 86400. All three limits use it. |
 

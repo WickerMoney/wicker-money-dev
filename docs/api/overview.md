@@ -466,14 +466,7 @@ is a `400`.
 
 ### Staged upload
 
-{/* Release prep: the staged upload is in main but not in a release. When
-the release that carries it ships, replace the "Next release" note below with
-"*Added in <version>.*" like the other sections of this page. */}
-
-:::note[Next release]
-The staged upload routes are in the main branch and are not in 0.7.0. The
-`:edge` image has them (see [Release tags](../self-hosting/release-tags)).
-:::
+*Added in 0.8.0.*
 
 `analyze` and `commit` take the file one of two ways: `csv`, the text in the
 body (up to 8,000,000 bytes, as above), or `uploadId`, the id of a file sent
