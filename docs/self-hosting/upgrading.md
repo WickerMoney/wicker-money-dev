@@ -48,6 +48,70 @@ owner role.
 
 ## Version notes
 
+### 0.7.0 → 0.8.0 \{#from-0-7-0}
+
+- **No migrations.** Upgrading is a pull and a restart, and going back to 0.7.0
+  is safe: run the old image as it is. Back up first anyway, as for any release.
+  The new staged CSV upload keeps its files in the API process's memory, not in
+  the database, so there is nothing to run and nothing to undo.
+- **Budgets and Import CSV now run in a sandboxed frame.** With them, all seven
+  bundled plugins run in frames and, today, none runs in the app's own page. They
+  read and write through the app with only their own routes and the table reads
+  their manifests list. A frame costs the browser an extra process and some
+  memory, as the earlier ones did. See
+  [How much a plugin is trusted](../features/plugins#how-much-a-plugin-is-trusted).
+- **Import CSV sends the file while you map the columns.** The page sends the file
+  to the API in pieces as soon as it is chosen, which is what lets a frame import
+  a file of up to 8 MB. A failed piece, an expired upload and a lost answer each
+  have a message and a retry, and choosing another file hands the first upload
+  back. **Leaving the page after choosing a file does not**: the upload stays 15
+  minutes, and two of them stop a person from starting another until they
+  expire. See [CSV import](../features/csv-import#sending-the-file).
+- **Staged uploads use API memory.** One API process holds at most 64,000,000
+  bytes of them for all people together, 2 per person, each gone 15 minutes after
+  its last new piece; there are no settings for these. They live in one process:
+  a restart empties them (the page sends the file again once), and with several
+  API instances every request for one upload must reach the same instance. See
+  [Concurrent imports](./configuration#concurrent-imports).
+- **`upload/begin` counts in the import rate limit.** One request per file, in
+  `API_RATE_LIMIT_IMPORT_MAX`; the other upload routes count in the general limit
+  (`API_RATE_LIMIT_MAX`). See [API rate limit](./configuration#api-rate-limit).
+- **Budgets shows a message where you acted and loads its lists once.** A failure
+  or the result of **Start *Month* from these** appears in the section it belongs
+  to, not at the top of the page. The page waits 150 ms after a change of month
+  before loading it, so holding Enter on **Previous** no longer ends in "This
+  plugin is sending requests too fast". A category or account added elsewhere
+  shows after you reload the page. See
+  [Monthly budgets](../features/monthly-budgets#messages-and-fresh-lists).
+- **Keyboard focus moves between plugin frames at once, and stays on a control
+  while its request runs.** Tab at the last control of a plugin page or widget
+  (Shift+Tab at the first) moves to the next or previous control on the page
+  immediately, and at the end of a page whose last thing is a frame, focus goes
+  round to the skip link. Table actions, form Save buttons, plugin switches and
+  some checkboxes ignore a click with a spoken "Still working. Try again in a
+  moment." instead of becoming disabled, so they keep focus. Four Import CSV
+  buttons still become disabled. Escape in the open phone navigation drawer returns
+  focus to the Menu button.
+- **A table wider than its room can be scrolled with the keyboard.** While it
+  overflows (Insights' **Show as table** on a phone, for example) the table is a
+  Tab stop with a visible focus ring.
+- **Plugin frames download less.** The frame's start-up no longer loads the SDK
+  root and its Zod manifest schemas.
+- **Fixed:** a plugin page frame is now as tall as its whole page, so the last
+  card is no longer a few pixels short; and Import CSV on a phone is no longer
+  wider than the window.
+- **For API clients:** additive. The Import CSV plugin gains `upload/begin`,
+  `upload/chunk`, `upload/finish` and `upload/abort`, and `analyze` and `commit`
+  accept an `uploadId` in place of `csv` (sending both is a `400`). The `csv`
+  body works as before. A full process answers `503 staging_full` with
+  `Retry-After`. See [Staged upload](../api/overview#staged-upload).
+- **For plugin authors:** `@wickermoney/ui-kit` gains a `busy` prop on `Button`,
+  `IconButton`, `Field` and `SelectField` and a `guardBusy` export (additive,
+  not experimental), and the experimental toast publishes `--wm-toast-height`.
+  `@wickermoney/plugin-sdk` has no code change. Nothing was removed and no
+  manifest needs editing. See
+  [Busy controls](../contributing/plugin-authoring#busy-controls-ui-kit).
+
 ### 0.6.1 → 0.7.0 \{#from-0-6-1}
 
 - **Back up first.** Two migrations, **034** and **035**, both on the Debt
