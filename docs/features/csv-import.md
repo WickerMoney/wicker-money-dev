@@ -1,6 +1,6 @@
 ---
 sidebar_position: 14
-description: Importing bank and card statements from CSV, with a saved column mapping per source, a date-format preview, duplicate detection and batch undo.
+description: Importing bank and card statements from CSV, with a saved column mapping per source, a date-format preview, a file sent to the server while you map, duplicate detection and batch undo.
 ---
 
 # CSV import
@@ -11,7 +11,9 @@ the file, tell it which column is which, look at what it made of your choices, a
 only then does anything get written. The mapping is remembered, so the second
 import from the same bank needs no setup, and any import can be undone.
 
-*Added in 0.1.0.*
+*Added in 0.1.0. Since 0.8.0 the page runs in a sandboxed frame and sends the
+file to the server in pieces while you map the columns (see [Sending the
+file](#sending-the-file)).*
 
 ## The four steps
 
@@ -21,8 +23,12 @@ Pick the account under **Import into** and choose a `.csv` file. An import alway
 lands in one account; archived accounts aren't offered. A file with no header row
 is refused: export it again with column names.
 
-The file is read in your browser, so you see a preview before anything is sent to
-the server for checking. Its text is read as UTF-8.
+The file is read in your browser, so you see a preview of what each column would
+become before anything is checked. Its text is read as UTF-8. Since 0.8.0 the
+file is also sent to the server at once, while you set the columns, so that the
+check in step 3 does not have to send it all again (see [Sending the
+file](#sending-the-file)). Nothing is written until step 3 ends with your
+decision.
 
 What the reader copes with:
 
@@ -82,7 +88,7 @@ the whole file:
 
 Under **Possible duplicates**, each flagged row is listed beside the transaction it
 resembles. Tick **Import** on the ones that really are new. The list is shown a
-page at a time, and **Show more** asks for the next page. Rows you haven't
+page at a time, and **Show *N* more** asks for the next page. Rows you haven't
 ticked aren't imported, whether or not they are on screen.
 
 The button says exactly what will happen: **Import *N* transactions**, where *N*
@@ -93,6 +99,66 @@ is the new rows plus those you ticked.
 A line tells you what was written: how many were imported, how many were already
 present, how many possible duplicates the file contained and how many rows were
 unreadable. **Import another file** starts over.
+
+## Sending the file
+
+*Added in 0.8.0.* The Import page runs in a sandboxed frame, like the other
+bundled plugins (see [Plugins](./plugins#how-much-a-plugin-is-trusted)). It
+looks and works the same as before, with these differences you can notice:
+
+- **The file goes to the server as soon as you choose it.** The page cuts the file
+  into pieces of about 200,000 characters and sends them while you set the
+  columns. Under the file name it says "Sending your file to the server. You can
+  set the columns meanwhile." with a progress bar, then "Your file is on the
+  server." By the time you press **Check for duplicates** it has usually arrived.
+  The check, each **Show *N* more** and the import then name the file on the server
+  and do not send it again. Small files go the same way.
+- **Messages sit in the step they belong to.** A problem with sending the file
+  appears at the top of step 1 and scrolls into view if it is off screen. The
+  page doesn't use the app's notifications, because a plugin in a frame has none.
+- **A table wider than the window scrolls on its own.** On a phone, the column
+  mapping, the review list and the recent imports each scroll sideways inside
+  their own area, which the keyboard can reach, instead of the whole page
+  growing wider than the screen. Rows in **Recent imports** that you have undone
+  are muted but still readable.
+
+When sending goes wrong, the file stays in your browser, so you never have to pick
+it again unless the page says so:
+
+- **A piece fails.** The page sends it again, twice at most, and says nothing
+  unless it keeps failing. Then step 1 shows an alert that starts "Your file could
+  not be sent to the server" and gives the reason. The half-sent upload is handed
+  back, and **Check for duplicates** sends the file again.
+- **The file is refused.** Choosing a file over 8 MB shows "That file is
+  larger than 8 MB. Split it and import in parts." and nothing is sent. A file
+  that would need more than 64 pieces (only text with unusual characters can)
+  shows "That file cannot be sent in the
+  pieces the server accepts. Split it and import in parts." When the server holds
+  as much staged text as it allows, step 1 says "Other uploads are using all the
+  space for staged files right now. Try again in about 30 seconds."
+- **The upload expired.** The server keeps a file for 15 minutes after its last new
+  piece, and checking doesn't extend that, so a long pause on the mapping step
+  can outlast it, and so can an API restart. When you press **Check for
+  duplicates**, **Show *N* more** or **Import** and the server no longer has the
+  file, the page sends it again once and carries on. If that doesn't help it says
+  "The server no longer has your file, and sending it again did not help. Choose
+  the file again." beside the button and keeps your mapping.
+- **The answer to an import is lost.** If the connection drops after the import
+  went through, the page shows the network message (for example "Could not reach
+  Wicker Money.") beside **Import** and stays on the review. Press **Import**
+  again: the second request carries the same key, gets the first answer, and
+  nothing is imported twice.
+- **You choose another file.** The first upload is cancelled and handed back to the
+  server at once, so it doesn't count against your limit (below).
+- **You leave the page.** Going to another page of the app after choosing a file
+  and before importing it **does not hand the upload back**: the app removes the
+  frame before the page can say so. The server keeps the file until 15 minutes
+  after its last new piece. This is a known gap. While two uploads are waiting you can't start
+  a third: choosing a file shows "You already have 2 uploads waiting. Import or
+  wait for one to expire, then try again." Wait for the older one to expire.
+
+The pieces wait in the memory of the API process, not in the database. See
+[Staged upload](../api/overview#staged-upload) for the routes.
 
 ## Duplicates
 
@@ -162,6 +228,13 @@ can be undone once.
   and import it in parts. The default of 100,000 is measured, with the reasoning,
   on the [configuration page](../self-hosting/configuration#pool-statement-timeouts-and-the-import-limit).
   An import runs under `DB_LONG_STATEMENT_TIMEOUT`, not the usual 30 seconds.
+- **Files waiting on the server.** *Added in 0.8.0.* Each person can have 2 files
+  on the server at once, waiting to be imported. A file is gone 15 minutes after
+  its last new piece, or as soon as its import succeeds. A file is sent in at
+  most 64 pieces, and one API process holds at most 64,000,000 bytes of waiting
+  files for everyone together; when it is full a new file is refused until
+  space is freed by an import, a cancelled upload or an expiry. The limits are fixed in the code, not settings. See
+  [Sending the file](#sending-the-file) for what the page says at each.
 - **One import into an account at a time.** Imports into the same account take
   turns, so the second sees what the first wrote. Imports into other accounts, by
   you or by other people on the instance, run alongside, each holding a database
@@ -178,7 +251,7 @@ can be undone once.
   [Concurrent imports](../self-hosting/configuration#concurrent-imports).
 - **A request limit.** *Added in 0.7.0.* Each person may make 30 import requests
   a minute (an analysis, or one more page of rows to review, counts as one;
-  so does a commit). Past that the page shows the message and says how many
+  so does a commit, and so does starting to send a file, once per file). Past that the page shows the message and says how many
   seconds to wait. See
   [API rate limit](../self-hosting/configuration#api-rate-limit).
 - **One commit is one batch.** Everything is written in a single transaction, or
