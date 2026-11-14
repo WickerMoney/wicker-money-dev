@@ -134,11 +134,14 @@ or "No spending in this range". Widen the range to look further back.
 
 ## Cards that run in a frame
 
-Where a card's code runs depends on its plugin. Since 0.7.0 every card except
-Budget breakdown runs in a sandboxed frame: Until payday (Upcoming), Money in
-and out and Where it went (Insights), Spending trends and Debt-free date (Debt
-payoff). Budget breakdown, from Budgets, still runs in the app's own page. You
-don't have to do anything about it: both kinds sit in the same card on the grid.
+Every card runs in a sandboxed frame: Until payday (Upcoming), Money in and out
+and Where it went (Insights), Spending trends, Budget breakdown (Budgets) and
+Debt-free date (Debt payoff). *Changed in 0.8.0:* before it, Budget breakdown was
+the one card that still ran in the app's own page. You don't have to do anything
+about it: the cards sit in the same grid. In a card that the grid has stretched
+to match its neighbour, Budget breakdown's tiles keep their size and leave some
+empty space under them.
+
 The sandbox is covered on [Plugins](./plugins#how-much-a-plugin-is-trusted).
 
 **Frames start when you scroll to them.** *Added in 0.7.0.* A card that runs in a

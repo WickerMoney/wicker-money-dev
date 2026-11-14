@@ -61,23 +61,26 @@ A member sees the plugins that are on, read-only.
 
 ## How much a plugin is trusted
 
-*Rewritten in 0.6.0, which adds the sandboxed runtime. The sandbox is new
-code, and its broker and token path have not been through an independent
-security review.*
+*Rewritten in 0.6.0, which adds the sandboxed runtime; updated in 0.8.0, when the
+last two bundled plugins moved into it. The sandbox is new code, and its broker
+and token path have not been through an independent security review.*
 
 Where a plugin's pages and widgets run depends on the plugin:
 
 | Plugin | Where its UI runs | Trust |
 | --- | --- | --- |
-| Insights, Spending Trends, Upcoming, Forecast, Debt payoff | A sandboxed frame | Confined to its grants (below) |
-| Budgets, Import CSV | **The app's own page** | **Fully trusted, not sandboxed** |
+| Insights, Spending Trends, Upcoming, Forecast, Debt payoff, Budgets, Import CSV | A sandboxed frame | Confined to its grants (below) |
 | A third-party plugin an operator has added | A sandboxed frame, always | Confined to its grants (below) |
 
-**The two bundled plugins in the app's own page** (Budgets and Import CSV) share
-the page, its memory and your session with the app. They can call any `/api/v1/*` route you can. The
-tables a manifest asks for (`requiredTables`) and the `x-wickermoney-plugin`
-header are developer feedback, not a security boundary for that code. They ship
-in the image and are reviewed with the rest of the application.
+**Today no bundled plugin runs in the app's own page: all seven run in sandboxed
+frames.** Which plugins may run in the page is decided by the host, never by a
+manifest, through a list of bundled plugin ids, and that list is empty today.
+The code that would load a listed plugin into the page has not been removed;
+nothing in the image uses it, a manifest cannot ask for it, and a plugin served
+from another origin has no path into it. A plugin on that list would be fully
+trusted: in the app's own origin, with the signed-in user's access to the whole
+API, and neither its manifest's `requiredTables` nor the `x-wickermoney-plugin`
+header would be a boundary for it. A release that listed one would say so here.
 
 **A plugin in a sandboxed frame** runs in an `<iframe sandbox="allow-scripts">`
 whose document has its own content security policy. It has no access to the
@@ -89,7 +92,11 @@ lasts five minutes. The server gives that token a few read-only aggregate
 routes for the tables the manifest lists, plus the plugin's own routes, and
 refuses everything else, including sign-in, the data export, the erase actions,
 plugin management and other plugins' routes. A hostile-plugin test suite
-attempts about 140 escapes, in Chromium, on every pull request.
+attempts about 170 escapes (it includes the staged CSV upload routes of Import
+CSV), in Chromium, on every pull request. This is the same frame and the same
+broker for every plugin, bundled or not: a bug or a compromised dependency in the
+front end of Budgets or Import CSV is held to that plugin's own routes and the
+table reads its manifest lists, not to the signed-in user's whole session.
 
 *Changed in 0.7.0.* Upcoming (the Until payday widget), Forecast (a whole
 page) and Debt payoff (a page and a widget) moved into frames, so they now reach
@@ -98,8 +105,25 @@ hold read grants on `recurring_items` and `accounts`; Debt payoff reads
 accounts and its own routes. Each looks and behaves as before. A widget's frame
 is not created until its card is near the screen (see [The
 dashboard](./dashboard#cards-that-run-in-a-frame)), so find in page and printing
-see only the widgets that have started. Moving Budgets and Import CSV into
-frames is still not done.
+see only the widgets that have started.
+
+*Changed in 0.8.0.* Budgets (the page and the Budget breakdown widget) and Import
+CSV (the page) moved into frames too, which leaves no bundled plugin in the app's
+own page. Budgets reads accounts, categories, transactions and transaction
+splits through the app, the four tables its manifest lists, and reads and
+changes budgets through its own routes; Import CSV sends its file through its own routes. Both look and behave
+as before apart from where a message appears and how the file is sent (see
+[Monthly budgets](./monthly-budgets) and [CSV import](./csv-import)). A frame
+costs the browser an extra process and some memory, as for the other plugins.
+
+**What the sandbox does not take away** is a plugin's say over its own data. A
+frame can call every route of its own plugin (`/api/v1/p/<id>/`) as well as read
+the tables its manifest lists. For a bundled plugin that is real power: the
+Budgets frame can change budgets, and the Import CSV frame can analyze, import
+and undo imports for the signed-in user. The sandbox keeps a compromised frame to
+those routes and reads and no further; it does not make the bundled plugins' own
+code untrusted. They ship in the image and are reviewed with the rest of the
+application.
 
 **What the sandbox does not stop** (observed in Chromium 141; WebKitGTK 2.52
 was checked for the last item only; Firefox and Safari have not been tested):
@@ -135,8 +159,9 @@ mistakes, not hostile code.
 
 ### Adding a third-party plugin (experimental)
 
-There is no install flow, catalog or signing. The isolated runtime and loading
-a third-party plugin are opt-in and off by default. The only way to add one is
+There is no install flow, catalog or signing. Loading a third-party plugin is
+opt-in and off by default, and the broker and token path behind it, which every
+bundled plugin's UI also uses, have not been independently reviewed. The only way to add one is
 for the operator to do it by hand:
 
 1. Put the plugin's build on an https origin and list that origin in
@@ -165,8 +190,7 @@ the plugin.
 
 - An install flow, a catalog or signing for third-party plugins. Today an
   operator adds one by hand (see above), and an independent security review
-  comes first. Moving the two remaining bundled plugins (Budgets and Import CSV)
-  into frames is also not done. See the
+  comes first. See the
   [roadmap](https://github.com/wickermoney/wicker-money/blob/main/ROADMAP.md).
 - Per-account choices. A plugin is on or off for the whole instance.
 

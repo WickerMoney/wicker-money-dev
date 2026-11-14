@@ -50,8 +50,8 @@ No `./recurrence` export was removed in 0.5.0 or in 0.6.0.
 
 ### The isolated entry point
 
-*Added in 0.6.0. Experimental. The web app hosts it, and Insights, Spending
-Trends, Upcoming, Forecast and Debt payoff run on it.*
+*Added in 0.6.0. Experimental. The web app hosts it, and every bundled plugin's
+UI runs on it (Budgets and Import CSV since 0.8.0).*
 
 `@wickermoney/plugin-sdk/isolated` is the contract for a UI plugin that runs in
 a sandboxed frame instead of in the app's own page. A `PluginContext` is an
@@ -69,8 +69,9 @@ What this does and doesn't change:
 - **It is additive.** `SDK_MAJOR_VERSION` stays `0`, `/runtime` is unchanged,
   and no manifest needs editing, so there is nothing to migrate.
 - **The host decides where a plugin runs.** A bundled plugin on a short
-  host-internal list runs in the app's own page; every other plugin, and any
-  plugin whose manifest says `isolated: true`, runs in a sandboxed frame.
+  host-internal list would run in the app's own page, and that list is empty
+  today; every other plugin, and any plugin whose manifest says `isolated: true`,
+  runs in a sandboxed frame. A manifest cannot ask for the page.
   `GET /api/v1/plugins` reports the `runtime` of each. A plugin in a frame
   reaches data only through the host's broker, with a token that carries just
   its manifest's grants. See
