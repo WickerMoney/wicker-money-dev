@@ -50,7 +50,10 @@ The spent figure is deliberately narrow. These are **not** counted:
 ## Reading the page
 
 Use **Previous**, **Next** and **This month** to move between months. The page
-opens on the current month in your [time zone](./time-zone). The four figures at
+opens on the current month in your [time zone](./time-zone). *Changed in 0.8.0.*
+The page waits 150 ms after a change of month before it loads the new one, so
+holding Enter on **Previous** loads only the month you stop on, and no longer ends
+in "This plugin is sending requests too fast". The four figures at
 the top total the month's category lines and windows:
 
 | Figure | Meaning |
@@ -144,8 +147,9 @@ badge. Looking ahead is a read and writes nothing. Nothing is saved until
 you act.
 
 - **Start *Month* from these** saves all of the previewed lines, with their
-  rollover settings, as that month's budget. A notice says how many were carried
-  over.
+  rollover settings, as that month's budget. A notice in the month's section at
+  the top says how many were carried over, for example "4 lines carried over from
+  September 2026.".
 - A draft never includes a category that a window already covers that month.
 - A draft carries nothing in. The balance a rolling line inherits depends on how
   the month before actually ends, so it shows once the lines are saved.
@@ -159,6 +163,17 @@ these** first, then edit.
 
 If the month before has no lines either, there is nothing to preview and the page
 shows **Nothing budgeted yet**.
+
+## Messages and fresh lists
+
+*Changed in 0.8.0, when the page began to run in a [sandboxed
+frame](./plugins#how-much-a-plugin-is-trusted).* A failure, such as a line that
+can't be removed, or the result of **Start *Month* from these**, appears in the
+section it belongs to (the month at the top, **Lines**, or **Account
+allowances**), next to what you just did, and scrolls into view if it is off
+screen. It doesn't appear at the top of the page. The page loads its categories
+and accounts once, when it opens, so a category or account you add on another
+page shows in the pickers after you reload the Budgets page.
 
 ## Spent with no budget
 

@@ -14,11 +14,11 @@ The core owns identity, money movement and the app shell. Everything that
 importers — is a plugin built against `@wickermoney/plugin-sdk`. A fresh
 install is useful on its own. Bundled plugins ship enabled, an owner can turn
 any of them off from Settings without losing its data, and they are built
-against the same SDK a third-party plugin would use. Five of them (Insights,
-Spending Trends, Upcoming, Forecast and Debt payoff) run in a sandboxed frame;
-Budgets and Import CSV still run in the app's own page, fully trusted. There is
-no install flow for third-party plugins yet; an operator can add one by hand, as
-an experimental feature.
+against the same SDK a third-party plugin would use. All seven of them (Insights,
+Spending Trends, Upcoming, Forecast, Debt payoff, Budgets and Import CSV) run in
+a sandboxed frame; today none runs in the app's own page. There is no install
+flow for third-party plugins yet; an operator can add one by hand, as an
+experimental feature.
 
 :::caution[Pre-1.0, single maintainer]
 Wicker Money is pre-1.0 and has one maintainer (Jeremy). Some of what's on

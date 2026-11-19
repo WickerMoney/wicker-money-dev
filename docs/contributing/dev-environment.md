@@ -52,9 +52,9 @@ pnpm test
 
 ## The dev server and plugin frames
 
-*Changed in 0.7.0.* Most of the bundled plugins run in sandboxed frames
-(Insights, Spending Trends, Upcoming, Forecast and Debt payoff; Budgets and
-Import CSV still run in the app's own page). A frame is a separate document that
+*Changed in 0.7.0 and 0.8.0.* Every bundled plugin runs in a sandboxed frame
+(Insights, Spending Trends, Upcoming, Forecast and Debt payoff since 0.7.0 or
+before; Budgets and Import CSV since 0.8.0). A frame is a separate document that
 the **API** serves with its own content security policy and sandbox, not
 something Vite can serve, so in `pnpm dev` the dev server forwards
 `/plugin-frame`, `/assets` and a frame's requests for `/plugins` to the API on
@@ -74,8 +74,9 @@ The API then also serves the built app on port 8080, which you can ignore.
 - **A frame runs the built copy of its code.** There is no hot reload inside it.
   After you change the frame runtime (`apps/web/src/frame`), the SDK's isolated
   entry point, or a plugin that runs in a frame, run the build line again and
-  reload. Plugins that run in the app's own page are unchanged: Vite serves them
-  from `apps/web/public/plugins`, which their watch builds rewrite.
+  reload. A plugin the host lists for the app's own page would be served by Vite from
+  `apps/web/public/plugins`, which the plugins' watch builds rewrite; that list is
+  empty today, so every bundled plugin needs the build line above.
 - **Without the proxy and the build,** a widget shows "The plugin did not start
   in time" and the console has CORS errors for `/@vite/client` and the frame's
   modules, because Vite would answer `/plugin-frame` with its own page and no

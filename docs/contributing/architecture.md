@@ -17,9 +17,11 @@ Wicker Money is a thin core plus installable plugins. Each plugin declares a
 `requiredTables` manifest field, and a per-plugin PostgreSQL role guards it for
 the plugin's server-side code: a plugin that asks for `transactions` and `categories` must
 not be able to reach `accounts`, and must see only the current user's rows
-within the tables it *does* get. A plugin's UI code is different: for the five bundled plugins still in the
-app's own page it runs in the app's origin as the signed-in user, so
-`requiredTables` doesn't restrict it, and even the server-side guard is a guardrail rather than a sandbox (see
+within the tables it *does* get. A plugin's UI code is different: today every bundled plugin's UI runs in a
+sandboxed frame and reaches data only through the host, but a plugin the host
+listed for the app's own page would run in the app's origin as the signed-in
+user, where `requiredTables` doesn't restrict it. Even the server-side guard is a
+guardrail rather than a sandbox (see
 [Trust boundary for UI plugins](#trust-boundary-for-ui-plugins)).
 
 Every mechanism that enforcement needs is PostgreSQL-specific — a
@@ -82,17 +84,22 @@ isolation that doesn't exist yet.
 
 ## Trust boundary for UI plugins
 
-*Rewritten in 0.6.0. The sandbox is new and has not been independently
-reviewed.*
+*Rewritten in 0.6.0, updated in 0.8.0. The sandbox is new and has not been
+independently reviewed.*
 
 A plugin's UI runs in one of two places, decided by the API
 (`pluginRuntimeFor`): the app's own page, or a sandboxed frame. Only a bundled
-plugin on a short host-internal list can run in the page. Insights, Spending
-Trends, Upcoming, Forecast and Debt payoff are not on it (the last three moved
-off it in 0.7.0); Budgets and Import CSV are, and run **fully trusted, in the
-host's origin**, sharing the page, its memory and the signed-in user's session.
-For them the scoped client, the `x-wickermoney-plugin` header and the manifest
-check in `ctx.api` catch mistakes early; they are not a security boundary.
+plugin on a short host-internal list (`IN_REALM_PLUGIN_IDS`) can run in the
+page, and **that list is empty today**: all seven bundled plugins run in a
+frame (Insights and Spending Trends since 0.6.0, Upcoming, Forecast and Debt
+payoff since 0.7.0, Budgets and Import CSV since 0.8.0). The code that would
+load a listed plugin into the page has not been removed. A plugin on the list
+would run **fully trusted, in the host's origin**, sharing the page, its memory
+and the signed-in user's session; for it the scoped client, the
+`x-wickermoney-plugin` header and the manifest check in `ctx.api` would catch
+mistakes early and would not be a security boundary. A manifest cannot ask for
+that: `isolated: true` only moves a plugin towards the frame, and a plugin whose
+`remoteEntry` the host does not serve has no path into the page.
 
 Everything else runs in an `<iframe sandbox="allow-scripts">` (never
 `allow-same-origin`), loaded from `GET /plugin-frame`, which the API serves with

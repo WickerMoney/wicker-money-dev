@@ -146,7 +146,7 @@ its `x-wickermoney-plugin` header gets `403 grant_denied`.
 
 ### Plugin tokens
 
-*Added in 0.6.0.* The web app holds a plugin token for each plugin that runs in a sandboxed frame; plugins in the app's own page don't use one. A plugin token carries the user
+*Added in 0.6.0.* The web app holds a plugin token for each plugin that runs in a sandboxed frame, which today is every bundled plugin; a plugin the host lists for the app's own page would not use one, and none is listed. A plugin token carries the user
 (`sub`), the session it was minted under, the plugin id and the tables the
 plugin's manifest grants, with its own audience so it never verifies as an
 ordinary access token. It lives five minutes, and one older than fifteen is
@@ -466,14 +466,7 @@ is a `400`.
 
 ### Staged upload
 
-{/* Release prep: the staged upload is in main but not in a release. When
-the release that carries it ships, replace the "Next release" note below with
-"*Added in <version>.*" like the other sections of this page. */}
-
-:::note[Next release]
-The staged upload routes are in the main branch and are not in 0.7.0. The
-`:edge` image has them (see [Release tags](../self-hosting/release-tags)).
-:::
+*Added in 0.8.0.*
 
 `analyze` and `commit` take the file one of two ways: `csv`, the text in the
 body (up to 8,000,000 bytes, as above), or `uploadId`, the id of a file sent
